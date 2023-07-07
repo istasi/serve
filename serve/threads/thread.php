@@ -10,8 +10,6 @@ use Exception;
 
 class thread
 {
-	static private int $children = 0;
-
 	static public function spawn ( callable $callback ): worker
 	{
 		static $spawned = 0;
@@ -34,11 +32,7 @@ class thread
 			throw new Exception ('thread: Failed to spawn child.');
 		
 		if ( $pid )
-		{
-			self::$children++;
-
 			return $worker;
-		}
 
 		$callback ( $parent, $spawned );
 		exit (0);
@@ -59,8 +53,6 @@ class thread
 
 		if ( 0 === $pid )
 			return 0;
-
-		self::$children--;
 
 		return $pid;
 	}
