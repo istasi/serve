@@ -138,11 +138,18 @@ class engine extends \serve\pools\connections
 					break;
 
 			$write = [];
+			foreach ( $this as $connection )
+				if ( !$connection->writeBufferEmpty () )
+					$write [] = $connection->socket;
+
 			$exception = [];
 
 			$changes = socket_select ( read: $read, write: $write, except: $exception, seconds: $config ['internal_delay'], microseconds: 0 );
 			if ( $changes === 0 )
 				continue;
+
+			foreach ( $write as $connection )
+				$connection->write ();
 
 			foreach ( $read as $connection )
 			{
@@ -159,26 +166,7 @@ class engine extends \serve\pools\connections
 
 				$message = $connection->read ();
 				if ( $message )
-				{
 					log::entry( get_class ( $connection ) .': "'. print_r ( $message, true ) .'"');
-
-					if ( $connection instanceof \serve\connections\client )
-					{
-						$response = $connection->response();
-
-						try
-						{
-							$connection->listener->trigger ('request', [ 'request' => $connection->request (), 'response' => $response ]);
-						}
-						catch ( Throwable $e )
-						{
-							$response->send ('<h1>'. $e->getMessage () .'</h1><h2>'. $e->getFile () .':'. $e->getLine () .'</h2><pre>'. $e->getTraceAsString() .'</pre>' );
-						}
-						
-						if ( $response->sent () === false )
-							$response->send ('404 not found');
-					}
-				}
 			}
 		}
 		while ( 1 );

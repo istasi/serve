@@ -28,11 +28,25 @@ class connection
 		if ( $message )
         	$this->writeBuffer .= $message;
 
-        $writtenLength = socket_write($this->socket, $this->writeBuffer, strlen($this->writeBuffer));
+		if ( !$this->opened )
+			return;
+
+		$writtenLength = @socket_write($this->socket, $this->writeBuffer, strlen($this->writeBuffer));
+		if ( $writtenLength === false )
+		{
+			$this->close ();
+			return;
+		}
+
         $this->writeBuffer = substr($this->writeBuffer, $writtenLength);
 
         return;
     }
+
+	public function writeBufferEmpty (): bool
+	{
+		return empty ( $this->writeBuffer );
+	}
 
     public function read(int $length = 4096): string|false
     {
