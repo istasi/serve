@@ -6,10 +6,11 @@ namespace serve;
 
 class log
 {
-	public static int $id = 0;
-
-	static public function entry ( $message )
+	static public int $id = 0;
+	static public $fp = STDOUT;
+	
+	static public function entry ( $message ): void
 	{
-		echo '['. self::$id .']['. date ('c') .'] '. $message. PHP_EOL;
+		fwrite (self::$fp, '['. self::$id .']['. date ('c') .'] '. $message. PHP_EOL);
 	}
 }
