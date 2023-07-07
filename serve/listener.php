@@ -37,8 +37,11 @@ class listener extends connection
     {
 		socket_set_option ( $this->socket, SOL_SOCKET, SO_REUSEADDR, 1 );
 
-        socket_bind($this->socket, $address, $port);
-		socket_listen ( $this->socket, $this->backlog );
+        if ( !socket_bind($this->socket, $address, $port) )
+			die ();
+
+		if ( !socket_listen ( $this->socket, $this->backlog ) )
+			die ();
 
         $this->opened = true;
     }
