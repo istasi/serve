@@ -32,10 +32,6 @@ spl_autoload_register( function ( $class )
 		require_once $file;
 } );
 
-//require_once('serve/pools/pool.php');
-//require_once('serve/pools/connections.php');
-//require_once('serve/events.php');
-
 class engine extends \serve\pools\connections
 {
 	use events;
@@ -196,7 +192,7 @@ class engine extends \serve\pools\connections
 		// These we cannot update without restarting
 		$ownerFiles = get_included_files ();
 
-		$cycle = false;
+		$cycle = [];
 		foreach ( $files as $file )
 		{
 			if ( in_array ( haystack: $ownerFiles, needle: $file ) )
@@ -204,21 +200,24 @@ class engine extends \serve\pools\connections
 			
 			$time = filemtime ( $file );
 			if ( isset ( $this->watchingFiles [ $file ] ) === true && $this->watchingFiles [ $file ] < $time )
-				$cycle = true;
+				$cycle [] = $file;
 
 			$this->watchingFiles [ $file ] = $time;
 		}
 
-		if ( $cycle )
+		if ( empty ( $cycle ) === false )
 		{
 			\serve\log::entry ('Files modified, refresh workers');
 
-			foreach ( $this as $connection )
-				if ( $connection instanceof worker )
-					$connection->die ();
+			foreach ( $cycle as $file )
+				foreach ( $this as $connection )
+					if ( $connection instanceof worker && in_array ( haystack: $connection->files (), needle: $file ) )
+						$connection->die ();
+			
+			return true;
 		}
 
-		return $cycle;
+		return false;
 	}
 
 	private function spawnChildren ( int $workers, array $config ): void
