@@ -44,10 +44,6 @@ class client extends connection
 		if ( $this->opened )
 			if ( @socket_getpeername( $this->socket, $address, $port ) )
 				$message .= '#'. spl_object_id ( $this->socket ). ' '. $address .' - ';
-			else
-			{
-				//var_dump ( $read, socket_last_error ( $this->socket ) );
-			}
 
 		$this->request->address( $address );
 
