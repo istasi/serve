@@ -90,12 +90,8 @@ class engine extends \serve\pools\connections
 		if ( !isset ( $config ['owner'] ) )
 			$this->spawnChildren ( $workers, $config );
 
-		$i = 0;
 		do
 		{
-			if ( $i++ > 1000000 )
-				break;
-		
 			if ( isset ( $config ['owner'] ) ) 
 				$config ['owner']->send ();
 			else 
@@ -197,8 +193,6 @@ class engine extends \serve\pools\connections
 
 		if ( empty ( $cycle ) === false )
 		{
-			\serve\log::entry ('Files modified, refresh workers');
-
 			foreach ( $cycle as $file )
 				foreach ( $this as $connection )
 					if ( $connection instanceof worker && in_array ( haystack: $connection->files (), needle: $file ) )

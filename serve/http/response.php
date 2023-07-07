@@ -74,6 +74,8 @@ class response
 	public function send ( string $content = null, int $code = null ): bool
 	{
 		$raw = '';
+		if ( $code )
+			$this->code = $code;
 
 		switch ( $this->state )
 		{
@@ -83,9 +85,9 @@ class response
 			case SERVE_HTTP_RESPONSE_HEADERS:
 				$length = strlen ( $content );
 				if ( $length > 1024 * 10 )
-					$this->headers ['content-encoding'] = 'deflate';
-				else if ( $length > 1024 )
 					$this->headers ['content-encoding'] = 'gzip';
+				else if ( $length > 1024 )
+					$this->headers ['content-encoding'] = 'deflate';
 				else
 					unset ( $this->headers ['content-encoding'] );
 
@@ -107,7 +109,7 @@ class response
 							$content = gzencode($content);
 							break;
 						case 'deflate':
-							$content = gzdeflate($content, 9);
+							$content = gzdeflate($content);
 							break;
 					}
 				}
