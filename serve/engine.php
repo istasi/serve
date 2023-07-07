@@ -1,0 +1,263 @@
+<?php
+
+declare(strict_types=1);
+
+namespace serve;
+
+use serve\pools\pool;
+use serve\threads\thread;
+use serve\connections\owner;
+use serve\connections\worker;
+
+use Throwable;
+use Exception;
+use serve\exceptions\kill;
+
+define ( 'ENGINE_WORKER_READY', '1' );
+define ( 'ENGINE_WORKER_ACCEPT', '2' );
+define ( 'ENGINE_WORKER_DENY', '3' );
+define ( 'ENGINE_WORKER_DIE', '4' );
+
+spl_autoload_register( function ( $class )
+{
+	$file = str_replace(
+		search: '\\',
+		replace: '/',
+		subject: $class
+	);
+
+	$file = $file .'.php';
+
+	if ( file_exists ( $file ) )
+		require_once $file;
+} );
+
+//require_once('serve/pools/pool.php');
+//require_once('serve/pools/connections.php');
+//require_once('serve/events.php');
+
+class engine extends \serve\pools\connections
+{
+	use events;
+
+	private pool $includedFiles;
+
+	public function __construct ( private array $config = [] )
+	{
+		parent::__construct ( size: -1 );
+
+		$defaultConfig = [
+			'workers' => 4, 		// Amount of processes that handles incoming requests, this means parallel processing.
+			'internal_delay' => 1 	// Seconds to wait for socket connections before checking other things, such as if file are modified
+		];
+
+		foreach ( $defaultConfig as $key => $value )
+			if ( isset ( $this->config [ $key ] ) === false )
+				$this->config [ $key ] = $value;
+	}
+
+	public function setup ( array $config = [] ): void
+	{
+		foreach ( $config as $key => $value )
+		{
+			switch ( $key )
+			{
+				case 'internal_delay':
+					if ( is_numeric ( $value ) === false )
+						break;
+
+					$this->config [ $key ] = (int) $value;
+					break;
+				case 'parent':
+						$this->add ( $value );
+
+				case 'workers':
+				default:
+					$this->config [ $key ] = $value;
+			}
+		}
+	}
+
+	public function run (): void
+	{
+		$config = array_merge ( [], $this->config );
+		$workers = (int) $config ['workers'] ?? 4;
+
+		if ( empty ( $config ['internal_delay'] ) === true )
+			$config ['internal_delay'] = 1;
+
+		if ( $workers < 1 )
+			throw new Exception ('Too few workers configured');
+
+		if ( !isset ( $config ['owner'] ) )
+			$this->spawnChildren ( $workers, $config );
+
+		$i = 0;
+		do
+		{
+			if ( $i++ > 1000000 )
+				break;
+		
+			if ( isset ( $config ['owner'] ) ) 
+				$config ['owner']->send ();
+			else 
+			{
+				$workerCount = 0;
+				foreach ( $this as $connection )
+				{
+					if ( $connection instanceof worker )
+					{
+						$workerCount++;
+						if ( $this->watch ( $connection->files () ) === true )
+							break;
+					}
+				}
+
+				if ( $workerCount < $workers )
+				{
+					$amount = $workers - $workerCount;
+					if ( $amount > 0 )
+						$this->spawnChildren ( $amount, $config );
+				}
+			}
+
+			$read = $this->sockets ( function ( $connection ) use ( $config )
+			{
+				if ( isset ( $config ['owner'] ) === false )
+					if ( $connection instanceof listener )
+						return false;
+
+				return true;
+			});
+
+			if ( empty ( $read ) === true )
+				if ( isset ($config['owner']) === false )
+				{
+					sleep ($config ['internal_delay']);
+					continue;
+				}
+				else
+					break;
+
+			$write = [];
+			$exception = [];
+
+			$changes = socket_select ( read: $read, write: $write, except: $exception, seconds: $config ['internal_delay'], microseconds: 0 );
+			if ( $changes === 0 )
+				continue;
+
+			foreach ( $read as $connection )
+			{
+				$connection = $this->fromSocket ( $connection );
+
+				if ( $connection instanceof listener )
+				{
+					$client = $connection->accept ();
+					if ( $client )
+						$this->add ( $client );
+
+					continue;
+				}
+
+				$message = $connection->read ();
+				if ( $message )
+				{
+					log::entry( get_class ( $connection ) .': "'. print_r ( $message, true ) .'"');
+
+					if ( $connection instanceof \serve\connections\client )
+					{
+						$response = $connection->response();
+
+						try
+						{
+							$connection->listener->trigger ('request', [ 'request' => $connection->request (), 'response' => $response ]);
+						}
+						catch ( Throwable $e )
+						{
+							$response->send ('<h1>'. $e->getMessage () .'</h1><h2>'. $e->getFile () .':'. $e->getLine () .'</h2><pre>'. $e->getTraceAsString() .'</pre>' );
+						}
+						
+						if ( $response->sent () === false )
+							$response->send ('404 not found');
+					}
+				}
+			}
+		}
+		while ( 1 );
+
+		if ( isset ( $config ['owner'] ) )
+			$config ['owner']->write ( ENGINE_WORKER_DIE );
+	}
+
+	private $watchingFiles = [];
+
+	private function watch ( array $files = [] ): bool
+	{
+		// These we cannot update without restarting
+		$ownerFiles = get_included_files ();
+
+		$cycle = false;
+		foreach ( $files as $file )
+		{
+			if ( in_array ( haystack: $ownerFiles, needle: $file ) )
+				continue;
+			
+			$time = filemtime ( $file );
+			if ( isset ( $this->watchingFiles [ $file ] ) === true && $this->watchingFiles [ $file ] < $time )
+				$cycle = true;
+
+			$this->watchingFiles [ $file ] = $time;
+		}
+
+		if ( $cycle )
+		{
+			\serve\log::entry ('Files modified, refresh workers');
+
+			foreach ( $this as $connection )
+				if ( $connection instanceof worker )
+					$connection->die ();
+		}
+
+		return $cycle;
+	}
+
+	private function spawnChildren ( int $workers, array $config ): void
+	{
+		$original = $this;
+
+		for ( $i = 0; $i < $workers; $i++ )
+		{
+			$child = thread::spawn ( function ( owner $owner, int $id ) use ( $config, $original )
+			{
+				log::$id = $id;
+
+				$engine = new engine ( $config );
+				$engine->triggers ( $original->triggers () );
+
+				$engine->setup ([
+					'owner' => $owner
+				]);
+
+				foreach ( $original as $connection )
+					if ( $connection instanceof listener )
+						$engine->add ( $connection );
+
+				$engine->add ( $owner );
+				$engine->trigger ('worker_start');
+
+				try
+				{	$engine->run (); }
+				catch ( kill $exception )
+				{
+					foreach ( $this as $connection )
+						$connection->close ();
+
+					$engine->trigger ('worker_end');
+				}
+			} );
+
+			if ( $child )
+				$this->add ( $child );
+		}			
+	}
+}
