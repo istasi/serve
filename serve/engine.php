@@ -20,13 +20,15 @@ define ( 'ENGINE_WORKER_DIE', '4' );
 
 spl_autoload_register( function ( $class )
 {
+	$file = ltrim ( $class, '\\');
 	$file = str_replace(
 		search: '\\',
 		replace: '/',
-		subject: $class
+		subject: $file
 	);
 
 	$file = $file .'.php';
+	$file = __DIR__ .'/../'. $file;
 
 	if ( file_exists ( $file ) )
 		require_once $file;
