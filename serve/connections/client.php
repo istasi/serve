@@ -6,6 +6,7 @@ namespace serve\connections;
 
 use socket;
 use serve\listener;
+use Throwable;
 
 class client extends connection
 {
@@ -33,24 +34,40 @@ class client extends connection
 
 	public function read(int $length = 4096): string|false
 	{
+		$message = '';
+
 		$address = '';
 		$port = 0;
 
-		$message = '';
+		if ( $this->opened && @socket_getpeername( $this->socket, $address, $port ) )
+		{
+			$message .= '#'. spl_object_id ( $this->socket ). ' '. $address .' - ';
+			$this->request->address( $address );
+		}
+		
 		$read = parent::read ( $length );
 		if ( $read )
+		{
 			$this->request->append ( $read );
 
-		if ( $this->opened )
-			if ( @socket_getpeername( $this->socket, $address, $port ) )
-				$message .= '#'. spl_object_id ( $this->socket ). ' '. $address .' - ';
+			if ( $this->request->complete() )
+			{
+				$message .= $this->request->server ('request_uri') .' '. $this->request->server ('server_protocol') .' - '. $this->request->header ('user-agent');
+				$response = $this->response();
 
-		$this->request->address( $address );
+				try
+				{
+					$this->listener->trigger ('request', [ 'request' => $this->request (), 'response' => $response ]);
+				}
+				catch ( Throwable $e )
+				{
+					$response->send ('<h1>'. $e->getMessage () .'</h1><h2>'. $e->getFile () .':'. $e->getLine () .'</h2><pre>'. $e->getTraceAsString() .'</pre>' );
+				}
+				
+				return $message;
+			}
+		}
 
-		if ( !$this->request->complete() )
-			return false;
-			
-		$message .= $this->request->server ('request_uri') .' '. $this->request->server ('server_protocol') .' - '. $this->request->header ('user-agent');
-		return $message;
+		return false;
 	}
 }
