@@ -34,7 +34,7 @@ class client extends tcp\base
 
     public function read(int $length = 4096): string|false
     {
-	    $message = parent::read(4096);
+        $message = parent::read(4096);
         if ($this->connected === false) {
             return false;
         }
@@ -57,6 +57,7 @@ class client extends tcp\base
                 $reader->text($this->readBuffer);
                 foreach ($reader->parse() as $request) {
                     $response = new http\response();
+                    $response->header('content-encoding', $request->header('accept-encoding'));
                     $response->setWriter($this->writers [1]);
 
                     $this->trigger('request', ['request' => $request, 'response' => $response ]);
@@ -67,12 +68,4 @@ class client extends tcp\base
 
         return false;
     }
-
-	/*
-	public function write(string $message = ''): void
-    {
-		var_dump ( $message );
-        parent::write($message);
-    }
-	*/
 }

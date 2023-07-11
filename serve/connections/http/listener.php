@@ -12,7 +12,10 @@ class listener extends tcp\listener
 {
     public function read(int $read = 4096): string|false
     {
-        $stream = stream_socket_accept(socket: $this->stream, peer_name: $address);
+        $stream = @stream_socket_accept(socket: $this->stream, peer_name: $address);
+		if ($stream === false) {
+			return false;
+		}
         stream_set_blocking($stream, false);
 
         $client = new http\client(stream: $stream, address: $address);
