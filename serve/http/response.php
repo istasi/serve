@@ -40,22 +40,32 @@ class response
             $this->headers [ $key ] = [];
         }
 
+        $once = ['content-type', 'content-length', 'date', 'location', 'cache-control', 'server'];
+        if (in_array(haystack: $once, needle: $key) === true) {
+            $this->headers [ $key ] = [];
+        }
+
         $this->headers [ $key ][] = $value;
         return true;
     }
 
-    public function cookie(string $key, mixed $value, bool $httpOnly = false): bool
+    public function cookie(string $key, mixed $value, bool $httpOnly = false, string $path = '/', int $time = null): bool
     {
         if ($this->state > 1) {
             return false;
         }
+        $value = urlencode($value);
 
-		$value = urlencode ( $value );
+        if ($httpOnly === true) {
+            $value .= ';HttpOnly';
+        }
 
-		if ( $httpOnly === true )
-		{
-			$value .= ';httpOnly';
-		}
+        $value .= ';Path='. $path;
+
+        if ($time !== null) {
+            $time = gmdate('D, d M Y H:i:s \G\M\T', time() + $time);
+            $value .= ';Expires='. $time;
+        }
 
 
         $this->header('Set-Cookie', $key .'='. $value);
@@ -81,7 +91,7 @@ class response
                 // no break
             case 2:
                 $this->writer->content($body);
-				$this->state = 3;
+                $this->state = 3;
 
                 $this->headers = [];
                 $this->code = 200;
