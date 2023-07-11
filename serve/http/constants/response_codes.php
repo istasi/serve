@@ -1,0 +1,50 @@
+<?php
+
+declare(strict_types=1);
+
+
+define('SERVE_HTTP_RESPONSE_CODES_100', 'Continue');
+define('SERVE_HTTP_RESPONSE_CODES_101', 'Switching Protocols');
+define('SERVE_HTTP_RESPONSE_CODES_200', 'OK');
+define('SERVE_HTTP_RESPONSE_CODES_201', 'Created');
+define('SERVE_HTTP_RESPONSE_CODES_202', 'Accepted');
+define('SERVE_HTTP_RESPONSE_CODES_203', 'Non-Authoritative Information');
+define('SERVE_HTTP_RESPONSE_CODES_204', 'No Content');
+define('SERVE_HTTP_RESPONSE_CODES_205', 'Reset Content');
+define('SERVE_HTTP_RESPONSE_CODES_206', 'Partial Content');
+define('SERVE_HTTP_RESPONSE_CODES_300', 'Multiple Choices');
+define('SERVE_HTTP_RESPONSE_CODES_301', 'Moved Permanently');
+define('SERVE_HTTP_RESPONSE_CODES_302', 'Found');
+define('SERVE_HTTP_RESPONSE_CODES_303', 'See Other');
+define('SERVE_HTTP_RESPONSE_CODES_304', 'Not Modified');
+define('SERVE_HTTP_RESPONSE_CODES_307', 'Temporary Redirect');
+define('SERVE_HTTP_RESPONSE_CODES_400', 'Bad Request');
+define('SERVE_HTTP_RESPONSE_CODES_401', 'Unauthorized');
+define('SERVE_HTTP_RESPONSE_CODES_402', 'Payment Required');
+define('SERVE_HTTP_RESPONSE_CODES_403', 'Forbidden');
+define('SERVE_HTTP_RESPONSE_CODES_404', 'Not Found');
+define('SERVE_HTTP_RESPONSE_CODES_405', 'Method Not Allowed');
+define('SERVE_HTTP_RESPONSE_CODES_406', 'Not Acceptable');
+define('SERVE_HTTP_RESPONSE_CODES_407', 'Proxy Authentication Required');
+define('SERVE_HTTP_RESPONSE_CODES_408', 'Request Timeout');
+define('SERVE_HTTP_RESPONSE_CODES_409', 'Conflict');
+define('SERVE_HTTP_RESPONSE_CODES_410', 'Gone');
+define('SERVE_HTTP_RESPONSE_CODES_411', 'Length Required');
+define('SERVE_HTTP_RESPONSE_CODES_412', 'Precondition Failed');
+define('SERVE_HTTP_RESPONSE_CODES_413', 'Payload Too Large');
+define('SERVE_HTTP_RESPONSE_CODES_414', 'URI Too Long');
+define('SERVE_HTTP_RESPONSE_CODES_415', 'Unsupported Media Type');
+define('SERVE_HTTP_RESPONSE_CODES_416', 'Range Not Satisfiable');
+define('SERVE_HTTP_RESPONSE_CODES_417', 'Expectation Failed');
+define('SERVE_HTTP_RESPONSE_CODES_418', "I'm a teapot");
+define('SERVE_HTTP_RESPONSE_CODES_426', 'Upgrade Required');
+define('SERVE_HTTP_RESPONSE_CODES_428', 'Precondition Required');
+define('SERVE_HTTP_RESPONSE_CODES_429', 'Too Many Requests');
+define('SERVE_HTTP_RESPONSE_CODES_431', 'Request Header Fields Too Large');
+define('SERVE_HTTP_RESPONSE_CODES_451', 'Unavailable For Legal Reasons');
+define('SERVE_HTTP_RESPONSE_CODES_500', 'Internal Server Error');
+define('SERVE_HTTP_RESPONSE_CODES_501', 'Not Implemented');
+define('SERVE_HTTP_RESPONSE_CODES_502', 'Bad Gateway');
+define('SERVE_HTTP_RESPONSE_CODES_503', 'Service Unavailable');
+define('SERVE_HTTP_RESPONSE_CODES_504', 'Gateway Timeout');
+define('SERVE_HTTP_RESPONSE_CODES_505', 'HTTP Version Not Supported');

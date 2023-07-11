@@ -4,55 +4,66 @@ declare(strict_types=1);
 
 namespace serve\threads;
 
-use serve\connections\owner;
-use serve\connections\worker;
-use Exception;
+use serve\connections\unix\client;
+use serve\connections\unix\server;
+use serve\log;
 
 class thread
 {
-	static public function spawn ( callable $callback ): worker
+	public static function spawn(callable $callback): client
 	{
 		static $spawned = 0;
-		$spawned++;
+		++$spawned;
 
-		$connections = [];
-		if ( !socket_create_pair ( AF_UNIX, SOCK_STREAM, 0, $connections ) )
-			throw new Exception ('thread: Failed to create paired socket');
+		if ($spawned > 10) {
+			exit('control your self, no more');
+		}
 
-		$parentSocket = array_pop ( $connections );
-		socket_set_nonblock($parentSocket);
-		$parent = new owner ( $parentSocket );
+		$connections = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+		if (true === empty($connections)) {
+			throw new \Exception('thread: Failed to create paired socket');
+		}
 
-		$workerSocket = array_pop ( $connections );
-		socket_set_nonblock($workerSocket);
-		$worker = new worker ( $workerSocket );
+		$serverSocket = array_pop($connections);
+		stream_set_blocking($serverSocket, false);
+		$server = new server($serverSocket);
 
-		$pid = pcntl_fork ();
-		if ( -1 === $pid )
-			throw new Exception ('thread: Failed to spawn child.');
-		
-		if ( $pid )
-			return $worker;
+		$clientSocket = array_pop($connections);
+		stream_set_blocking($clientSocket, false);
+		$client = new client($clientSocket);
 
-		$callback ( $parent, $spawned );
-		exit (0);
+		$pid = pcntl_fork();
+		if (-1 === $pid) {
+			throw new \Exception('thread: Failed to spawn child.');
+		}
+
+		if ($pid) {
+			return $client;
+		}
+
+		log::$id = $spawned;
+		$callback($server, $spawned);
+
+		exit(0);
 	}
 
-	static public function wait ( int $flags = WNOHANG ): int
+	public static function wait(int $flags = WNOHANG): int
 	{
 		$status = 0;
 
-		$pid = pcntl_waitpid (
+		$pid = pcntl_waitpid(
 			process_id: -1,
 			status: $status,
 			flags: $flags
 		);
 
-		if ( -1 === $pid )
-			throw new Exception ('thread: Failed to wait');
+		if (-1 === $pid) {
+			throw new \Exception('thread: Failed to wait');
+		}
 
-		if ( 0 === $pid )
+		if (0 === $pid) {
 			return 0;
+		}
 
 		return $pid;
 	}

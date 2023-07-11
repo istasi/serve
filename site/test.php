@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-function showcase ()
+function showcase()
 {
 	return 'showcase message';
 }
 
 class showcase
 {
-	static public ?string $variable = null;
+	public static ?string $variable = null;
 }

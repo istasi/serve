@@ -1,42 +1,41 @@
 <?php
+
 declare(strict_types=1);
 
 namespace serve\pools;
 
-use socket;
-
 class connections extends pool
 {
-	public function sockets ( callable $filter = null ): array
+	public function streams(callable $filter = null): array
 	{
-		$sockets = [];
+		$streams = [];
 
-		foreach ( $this as $connection )
-		{
-			if ( !$connection->isOpen () )
-			{
-				$this->remove ( $connection );
+		foreach ($this as $connection) {
+			if (!$connection->connected) {
+				$this->remove($connection);
 
 				continue;
 			}
 
-			if ( $filter )
-			{
-				if ( $filter ( $connection ) )
-					$sockets [] = $connection->socket ();
+			if ($filter) {
+				if ($filter($connection)) {
+					$streams[] = $connection->stream;
+				}
+			} else {
+				$streams[] = $connection->stream;
 			}
-			else
-				$sockets [] = $connection->socket ();
 		}
 
-		return $sockets;
+		return $streams;
 	}
 
-	public function fromSocket ( socket $socket ): mixed
+	public function fromStream($stream): \serve\connections\base|null
 	{
-		foreach ( $this as $connection )
-			if ( $connection->socket () === $socket )
+		foreach ($this as $connection) {
+			if ($connection->stream === $stream) {
 				return $connection;
+			}
+		}
 
 		return null;
 	}

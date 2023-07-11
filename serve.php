@@ -2,27 +2,30 @@
 
 declare(strict_types=1);
 
-require_once('serve/engine.php');
-$engine = new serve\engine([
-    'workers' => 4
+require_once 'serve/autoload.php';
+
+$server = new serve\connections\http\ssl\listener([
+	'address' => '0.0.0.0',
+	'port' => 8000,
+	'ssl' => [
+		'local_cert' => '/home/istasi/php/server-cert.pem',
+		'local_pk' => '/home/istasi/php/server-key.pem',
+		'allow_self_signed' => true,
+		'verify_peer' => false,
+		'verify_peer_name' => false,
+		'disable_compression' => true
+	]
 ]);
 
-$engine->on ('worker_start', function ()
-{
-	serve\log::entry ('Worker spawned');
+$server->on('request', function (serve\http\response $response, serve\http\request $request) {
+	serve\log::entry ( $request->server ['remote_addr'] .': '. $request->server ['request_uri'] );
+
+	require 'site/main.php';
 });
 
-$engine->on ('worker_end', function ()
-{
-	serve\log::entry ('Worker ended');
-});
+$engine = new serve\engine([
+	'workers' => 4,
+]);
+$engine->add($server);
 
-// Set up the thing actually doing the listening
-$server = new serve\listener ( address: '0.0.0.0', port: 8000 );
-$server->on ('request', function ( serve\http\response $response, serve\http\request $request )
-{
-	require ('site/main.php');
-});
-$engine->add( $server );
-
-$engine->run ();
+$engine->run();
