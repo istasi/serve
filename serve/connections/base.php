@@ -17,7 +17,7 @@ class base
 
 	public function __construct(readonly public mixed $stream)
 	{
-		
+
 	}
 
 	public function __get(string $key): mixed
@@ -54,5 +54,11 @@ class base
 		} else {
 			$this->message = '';
 		}
+	}
+
+	public function close(): void
+	{
+		$this->connected = false;
+		fclose($this->stream);
 	}
 }

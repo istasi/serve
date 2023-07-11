@@ -6,6 +6,7 @@ namespace serve\engine;
 
 use serve\log;
 use serve\traits;
+use serve\exceptions\kill;
 
 class client extends base
 {
@@ -35,9 +36,17 @@ class client extends base
 			foreach ($read as $stream) {
 				$connection = $this->fromStream($stream);
 
-				$message = $connection->read();
-				if (false !== $message) {
-					log::entry($message);
+				try {
+					$message = $connection->read();
+					if (false === empty($message)) {
+						log::entry($message);
+					}
+				} catch (kill $e) {
+					foreach ($this as $connection) {
+						$connection->close();
+					}
+
+					break 2;
 				}
 			}
 		} while (1);

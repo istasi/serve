@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace serve\threads;
 
+use Exception;
 use serve\connections\unix\client;
 use serve\connections\unix\server;
 use serve\log;
@@ -47,6 +48,14 @@ class thread
 		exit(0);
 	}
 
+	/**
+	 * To avoid leaving zombie processes, we need to check for them, once we acknowledge their deaths, they will move on to a better place
+	 * <defunct> is the result of a zombie process where the owner havnt checked up on it.
+	 *
+	 * @param int $flags
+	 * @return int
+	 * @throws Exception
+	 */
 	public static function wait(int $flags = WNOHANG): int
 	{
 		$status = 0;
