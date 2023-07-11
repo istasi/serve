@@ -61,14 +61,15 @@ class writer
 			return false;
 		}
 
-		$this->state = 0;
+		$message = rtrim ( $message, "\r\n");
 		if (empty($message) === true) {
-			$this->client->write("\r\n\r\n\r\n");
+			$this->client->write( $this->message . str_repeat("\r\n",2) );
 		} else {
 			$message = 'content-length: '. strlen($message) ."\r\n\r\n". $message;
 			$this->client->write($this->message . $message);
 		}
 
+		$this->state = 0;
 		return true;
 	}
 }

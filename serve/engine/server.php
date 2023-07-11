@@ -79,6 +79,8 @@ class server extends base
 				$engine->setup($original->setup());
 				$engine->add($server);
 
+				$original->trigger ('worker_start',[]);
+
 				foreach ($original as $connection) {
 					if ($connection instanceof connections\listener) {
 						$engine->add($connection);

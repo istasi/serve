@@ -56,7 +56,7 @@ class reader
 				if (count($sections) !== 2) {
 					return null;
 				}
-
+				$this->request->unlock();
 				$this->current = $sections [0];
 				$this->remaining = $sections [1];
 
@@ -103,12 +103,11 @@ class reader
 				}
 
 				$this->request->__headers($headers);
-
 				$this->state = 2;
 				// no break
 			case 2:
 				// Step 2: body of the request
-				$length = $this->request->header('content-length');
+				$length = (int) $this->request->header('content-length');
 				if ($length > 0) {
 					$body = substr($this->remaining, 0, $length);
 
