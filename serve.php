@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once 'serve/autoload.php';
 
+/*
 $server = new serve\connections\http\ssl\listener([
 	'address' => '0.0.0.0',
 	'port' => 8000,
@@ -15,6 +16,11 @@ $server = new serve\connections\http\ssl\listener([
 		'verify_peer_name' => false,
 		'disable_compression' => true
 	]
+]);
+*/
+$server = new serve\connections\http\listener([
+	'server' => '0.0.0.0',
+	'port' => 8000
 ]);
 
 $server->on('request', function (serve\http\response $response, serve\http\request $request) {
