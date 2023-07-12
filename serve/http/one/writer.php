@@ -107,13 +107,8 @@ class writer
 				break;
 		}
 
-		if (empty($message) === true) {
-			$message = 'content-length: 0'. "\r\n\r\n";
-			$this->client->write($this->message . $message);
-		} else {
-			$message = 'content-length: '. strlen($message) ."\r\n\r\n". $message;
-			$this->client->write($this->message . $message);
-		}
+		$this->message .= 'content-length: '. strlen($message) ."\r\n\r\n";
+		$this->client->write($this->message . $message);
 
 		$this->state = 0;
 		return true;
