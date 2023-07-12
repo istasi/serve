@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace serve\connections\http;
 
+use Fiber;
 use serve\connections\tcp;
 use serve\http;
 use serve\log;
@@ -60,7 +61,7 @@ class client extends tcp\base
                     $response->header('content-encoding', $request->header('accept-encoding'));
                     $response->setWriter($this->writers [1]);
 
-                    $this->trigger('request', ['request' => $request, 'response' => $response ]);
+					$this->trigger('request', ['request' => $request, 'response' => $response ]);
                 }
 
                 $this->readBuffer = $reader->text();

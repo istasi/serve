@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace serve\engine;
 
 use serve\connections;
-use serve\connections\unix\client;
+use serve\connections\engine\client;
 use serve\engine;
 use serve\log;
 use serve\threads\thread;
@@ -31,8 +31,6 @@ class server extends base
 	{
 		$workers = $this->options['workers'];
 
-		$watcherFiles = [];
-
 		do {
 			$read = $this->streams(function ($connection) {
 				return $connection instanceof client;
@@ -52,42 +50,12 @@ class server extends base
 
 			$changes = stream_select(read: $read, write: $write, except: $except, seconds: $this->options['internal_delay'], microseconds: 0);
 			if ($changes < 1) {
-				thread::wait ();
-
-				if (isset($this->options ['watcher']) === false || $this->options ['watcher'] === true) {
-					$tmpFiles = [];
-					foreach ($this as $connection) {
-						if (!($connection instanceof client)) {
-							continue;
-						}
-
-						foreach ($connection->files() as $file) {
-							if (in_array(haystack: get_included_files(), needle: $file, strict: true) === true) {
-								continue;
-							}
-
-							if (isset($tmpFiles [ $file ]) === false) {
-								$time = filemtime($file);
-								$tmpFiles [ $file ] = $time;
-							} else {
-								$time = $tmpFiles [ $file ];
-							}
-
-							if (isset($watcherFiles [ $file ]) === false) {
-								$watcherFiles [ $file ] = $time;
-								continue;
-							}
-
-							if ($time > $watcherFiles [ $file ]) {
-								$connection->write ('die');
-							}
-						}
-					}
-
-					foreach ($tmpFiles as $file => $time) {
-						$watcherFiles [ $file ] = $time;
+				foreach ($this as $connection) {
+					if ($connection instanceof client) {
+						$connection->tick();
 					}
 				}
+
 				continue;
 			}
 
@@ -102,6 +70,8 @@ class server extends base
 					log::entry($message);
 				}
 			}
+
+			thread::wait();
 		} while (1);
 
 		log::entry('ran out of connections');
@@ -129,7 +99,7 @@ class server extends base
 
 				$engine->run();
 
-				$original->trigger ('worker_end', []);
+				$original->trigger('worker_end', []);
 			});
 
 			$this->add($client);

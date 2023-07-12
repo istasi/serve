@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace serve\threads;
 
 use Exception;
-use serve\connections\unix\client;
-use serve\connections\unix\server;
+use serve\connections\engine\client;
+use serve\connections\engine\server;
 use serve\log;
 
 class thread

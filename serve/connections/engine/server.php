@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace serve\connections\unix;
+namespace serve\connections\engine;
 
 use serve\connections\base;
 use serve\http\request;
@@ -12,7 +12,7 @@ use serve\exceptions\kill;
 /**
  * Messages from the server
  *
- * @package serve\connections\unix
+ * @package serve\connections\engine
  */
 class server extends base
 {
@@ -21,6 +21,7 @@ class server extends base
 	{
 		$files = get_included_files();
 		$files = json_encode($files);
+
 		if (is_string($files) !== true || $files === $this->lastFiles) {
 			return;
 		}
@@ -33,7 +34,7 @@ class server extends base
 	{
 		parent::read($length);
 
-		throw new kill ();
+		throw new kill();
 
 		return false;
 	}
