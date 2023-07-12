@@ -42,7 +42,7 @@ class writer
 			$this->headers['content-type'] = ['gzip'];
 		}
 
-		if (isset($headers ['content-type']) === true && str_starts_with(haystack: $headers['content-type'][0], needle: 'image') === true) {
+		if (isset($headers ['content-type']) === true && str_starts_with(haystack: $headers['content-type'][0], needle: 'image') === true && $headers['content-type'][0] !== 'image/svg+xml') {
 			unset($headers ['content-encoding']);
 		}
 
