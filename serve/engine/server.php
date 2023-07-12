@@ -27,6 +27,13 @@ class server extends base
 		$this->setup($options);
 	}
 
+	public function __destruct()
+	{
+		foreach ($this as $connection) {
+			$connection->close();
+		}
+	}
+
 	public function run(): void
 	{
 		$workers = $this->options['workers'];
@@ -68,6 +75,14 @@ class server extends base
 				$message = $connection->read();
 				if (empty($message) === false) {
 					log::entry($message);
+				}
+			}
+
+			foreach ($write as $connection)
+			{
+				$connection = $this->fromStream($connection);
+				if ( null === $connection ) {
+					continue;
 				}
 			}
 
