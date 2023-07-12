@@ -27,6 +27,11 @@ class client extends base
 		parent::__construct($stream);
 	}
 
+	public function __destruct()
+	{
+		$this->close();
+	}
+
 	private array $files = [];
 
 	protected string $buffer = '';

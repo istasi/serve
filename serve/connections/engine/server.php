@@ -16,6 +16,11 @@ use serve\exceptions\kill;
  */
 class server extends base
 {
+	public function __destruct()
+	{
+		$this->close ();
+	}
+
 	private string $lastFiles = '';
 	public function checkFiles(response $response, request $request)
 	{
