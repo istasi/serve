@@ -29,7 +29,6 @@ trait getTime
 		if (inotify_queue_len($inotify) > 0) {
 			$events = inotify_read($inotify);
 			if ($events) {
-				var_dump($events);
 				foreach ($events as $event) {
 					if (isset($event ['wd']) === true && isset($ids [ $event ['wd'] ]) === true) {
 						$file = $ids [ $event ['wd'] ];
