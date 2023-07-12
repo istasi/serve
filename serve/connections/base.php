@@ -20,6 +20,11 @@ class base
 
 	}
 
+	public function __destruct()
+	{
+		$this->close();
+	}
+
 	public function __get(string $key): mixed
 	{
 		switch ($key) {
@@ -58,6 +63,10 @@ class base
 
 	public function close(): void
 	{
+		if ($this->connected === false) {
+			return;
+		}
+
 		$this->connected = false;
 		fclose($this->stream);
 	}
