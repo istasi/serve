@@ -9,7 +9,7 @@ use serve\connections\base;
 if (function_exists('inotify_init') === true) {
 	require_once(__DIR__ .'/trait/usingInotify.php');
 } else {
-	require_once(__DIR__ .'/trait/usingFilemtime');
+	require_once(__DIR__ .'/trait/usingFilemtime.php');
 }
 
 
