@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace serve\http\one;
 
-use Traversable;
-use Generator;
 use serve\http;
 
 class reader
@@ -48,7 +46,7 @@ class reader
 		$this->remaining = '';
 	}
 
-	public function parse(): Generator
+	public function parse(): http\request|null
 	{
 		switch ($this->state) {
 			case 0:
@@ -97,9 +95,11 @@ class reader
 					$bits = explode(':', $line, 2);
 					if (count($bits) !== 2) {
 						$bits [1] = null;
+					} else {
+						$bits [1] = ltrim($bits[1]);
 					}
 
-					$headers [ rtrim(strtolower($bits [0])) ] = ltrim($bits [1]);
+					$headers [ rtrim(strtolower($bits [0])) ] = $bits [1];
 				}
 
 				$this->request->__headers($headers);
@@ -138,12 +138,7 @@ class reader
 				$this->request->lock();
 				$this->state = 0;
 
-				yield $this->request;
+				return $this->request;
 		}
-	}
-
-	public function getIterator(): Traversable
-	{
-		return $this->parse();
 	}
 }

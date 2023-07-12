@@ -52,13 +52,19 @@ class base
 		$this->message .= $message;
 
 		$length = strlen($this->message);
-		$wrote = fwrite($this->stream, $this->message);
+		$wrote = @fwrite($this->stream, $this->message);
+		if ($wrote === false) {
+			$this->close();
+			return;
+		}
 
 		if ($wrote < $length) {
-			$this->message = substr($this->message, $wrote);
+			$this->message = substr($this->message, $wrote, $length);
 		} else {
 			$this->message = '';
 		}
+
+		$this->write = !empty($this->message);
 	}
 
 	public function close(): void

@@ -19,6 +19,13 @@ class client extends base
 		$this->options = [];
 	}
 
+	public function __destruct()
+	{
+		foreach ($this as $connection) {
+			$connection->close();
+		}
+	}
+
 	public function run()
 	{
 		do {
@@ -33,8 +40,8 @@ class client extends base
 				continue;
 			}
 
-			foreach ($read as $stream) {
-				$connection = $this->fromStream($stream);
+			foreach ($read as $connection) {
+				$connection = $this->fromStream($connection);
 
 				try {
 					$message = $connection->read();
@@ -47,6 +54,13 @@ class client extends base
 					}
 
 					break 2;
+				}
+			}
+
+			foreach ($write as $connection) {
+				$connection = $this->fromStream($connection);
+				if (null !== $connection) {
+					$connection->write();
 				}
 			}
 		} while (1);
