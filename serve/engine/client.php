@@ -58,10 +58,6 @@ class client extends base
 						log::entry($message);
 					}
 				} catch (kill $e) {
-					foreach ($this as $connection) {
-						$connection->close();
-					}
-
 					break 2;
 				}
 			}
@@ -73,5 +69,9 @@ class client extends base
 				}
 			}
 		} while (1);
+
+		foreach ($this as $connection) {
+			$connection->close();
+		}
 	}
 }
