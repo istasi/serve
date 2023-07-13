@@ -29,13 +29,22 @@ class client extends base
 	public function run()
 	{
 		do {
+			/**
+			 * No idea why this matters, but having this here, seem to make sure that the engine\client are consistently killed off when engine\server is killed (SIGTERM/SIGINT)
+			 */
+			pcntl_signal_dispatch();
+
 			$read = $this->streams();
 			$write = $this->streams(function ($connection) {
 				return true === $connection->write;
 			});
 			$except = [];
 
-			$changes = stream_select(read: $read, write: $write, except: $except, seconds: $this->options['internal_delay'], microseconds: 0);
+			$changes = @stream_select(read: $read, write: $write, except: $except, seconds: $this->options['internal_delay'], microseconds: 0);
+			if ($changes === false) {
+				break;
+			}
+
 			if ($changes < 1) {
 				continue;
 			}

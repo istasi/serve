@@ -11,14 +11,13 @@ use serve\log;
 
 class thread
 {
+	private static bool $exited = false;
+	public static array $children = [];
+
 	public static function spawn(callable $callback): client
 	{
 		static $spawned = 0;
 		++$spawned;
-
-		if ($spawned > 10) {
-			exit('control your self, no more');
-		}
 
 		$connections = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
 		if (true === empty($connections)) {
@@ -28,10 +27,12 @@ class thread
 		$serverSocket = array_pop($connections);
 		stream_set_blocking($serverSocket, false);
 		$server = new server($serverSocket);
+		unset($serverSocket);
 
 		$clientSocket = array_pop($connections);
 		stream_set_blocking($clientSocket, false);
 		$client = new client($clientSocket);
+		unset($clientSocket);
 
 		$pid = pcntl_fork();
 		if (-1 === $pid) {
@@ -39,8 +40,19 @@ class thread
 		}
 
 		if ($pid) {
+			cli_set_process_title('serve: master process '. getcwd() .'/');
+			unset($arg);
+
+			// This shouldn't make a different GC should be able to see these the moment we hit return
+			unset($server,$connections);
+
+			self::$children [$pid] = true;
 			return $client;
 		}
+		unset($client,$connections);
+
+		pcntl_async_signals(false);
+		cli_set_process_title('serve: worker process');
 
 		log::$id = $spawned;
 		$callback($server, $spawned);
@@ -74,6 +86,21 @@ class thread
 			return 0;
 		}
 
+		self::$exited = pcntl_wifsignaled($status);
+		unset(self::$children [$pid]);
+
 		return $pid;
+	}
+
+	public static function lastExit(): bool
+	{
+		return self::$exited;
+	}
+
+	public static function killall(): void
+	{
+		foreach (array_keys(self::$children) as $pid) {
+			posix_kill($pid, SIGTERM);
+		}
 	}
 }
