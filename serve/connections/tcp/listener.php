@@ -7,9 +7,11 @@ namespace serve\connections\tcp;
 use serve\connections;
 use serve\traits\events;
 use serve\traits\setup;
+use serve\interfaces;
 use serve\log;
+use serve\engine;
 
-class listener extends connections\listener
+class listener extends connections\listener implements interfaces\setup
 {
 	use events;
 	use setup;
@@ -20,8 +22,8 @@ class listener extends connections\listener
 		$this->options = [
 			'address' => '127.0.0.1',
 			'port' => 8080,
+			'pool' => new engine\pool()
 		];
-
 		$this->setup($options);
 
 		$address = 'tcp://'.$this->options['address'].':'.$this->options['port'];
@@ -33,12 +35,9 @@ class listener extends connections\listener
 		parent::__construct($stream);
 	}
 
-
 	public function read(int $read = 4096): string|false
 	{
 		$stream = stream_socket_accept($this->stream);
-
-		var_dump($stream);
 		fclose($stream);
 
 		return false;

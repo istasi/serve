@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace serve\engine;
 
+use Exception;
 use serve\connections;
 use serve\connections\engine\client;
 use serve\engine;
 use serve\log;
 use serve\threads\thread;
 use serve\traits;
+use serve\interfaces;
 
-class server extends base
+class server extends base implements interfaces\setup
 {
 	use traits\setup;
 
 	public function __construct(array $options = [])
 	{
-		parent::__construct(size: -1);
-
 		$this->options = [
 			'workers' => 4,
 			'internal_delay' => 1,
@@ -36,6 +36,31 @@ class server extends base
 
 	public function run(): void
 	{
+		$defaultPool = new engine\pool([
+			'workers' => $this->options ['workers']
+		]);
+
+		/** @var engine\pool[] $pools */
+		$pools = [];
+
+		foreach ($this->getIterator() as $connection) {
+			if ($connection instanceof interfaces\setup) {
+				$options = $connection->setup();
+
+				if (isset($options ['pool']) === false || ($options ['pool'] instanceof engine\pool) === false) {
+					$options ['pool'] = $defaultPool;
+				}
+
+				/** @var engine\pool $pool */
+				$pool = $options ['pool'];
+				if (isset($pools [ $pool->id() ]) === false) {
+					$pools [ $pool->id() ] = $pool;
+				}
+
+				$pool->add($connection);
+			}
+		}
+
 		/**
 		 * We want it to stop executing the script a place that fit, such as stream_socket_select, from where we can attempt to do a more graceful shutdown
 		 * If a child process is getting hit by a SIGTERM instead, this process will just spawn a new one. Im not sure as to whenever
@@ -48,28 +73,42 @@ class server extends base
 		 *
 		 * Note: These get executed when die ()/exit () are called, exit (0); does not seem to make it a clean exit in terms of pcntl_wifexited ()
 		 */
+		/*
 		pcntl_signal(SIGTERM, function () { exit(0); });
 		pcntl_signal(SIGINT, function () {});
-
-		$workers = $this->options['workers'];
+		*/
 
 		do {
-			/**
-			 * No idea why this matters, but having this here, seem to make sure that the engine\client are consistently killed off when engine\server is killed (SIGTERM/SIGINT)
-			 */
-			pcntl_signal_dispatch();
+			$read = [];
+			foreach ($pools as $pool) {
+				$workers = $pool->get('workers');
 
-			$read = $this->streams(function ($connection) {
-				return $connection instanceof client;
-			});
+				$pool->streams(function ($connection) use (&$workers, &$read) {
+					if ($connection instanceof client) {
+						$workers--;
 
-			if (count($read) < $workers) {
-				$this->spawn($workers - count($read));
-
-				$read = $this->streams(function ($connection) {
-					return $connection instanceof client;
+						$read [] = $connection->stream;
+					}
 				});
+
+				if ($workers > 0) {
+					$connections = [];
+					foreach ($pool->getIterator() as $connection) {
+						if (($connection instanceof client) === false) {
+							$connections [] = $connection;
+						}
+					}
+
+					foreach ($this->spawn($workers, $connections) as $connection) {
+						$pool->add($connection);
+					}
+
+					$read = array_merge($read, $pool->streams(function ($connection) {
+						return $connection instanceof client;
+					}));
+				}
 			}
+			$read = array_unique($read);
 
 			$write = $this->streams(function ($connection) {
 				return true === $connection->write;
@@ -81,12 +120,6 @@ class server extends base
 			}
 
 			if ($changes < 1) {
-				foreach ($this as $connection) {
-					if ($connection instanceof client) {
-						$connection->tick();
-					}
-				}
-
 				continue;
 			}
 
@@ -115,34 +148,37 @@ class server extends base
 		thread::killall();
 	}
 
-	public function spawn(int $amount): void
+	/**
+	 *
+	 * @param int $amount
+	 * @param connections\base[] $connections
+	 * @return connections\engine\client[]
+	 * @throws Exception
+	 */
+	public function spawn(int $amount, array $connections = []): array
 	{
-		$original = $this;
+		/** @var connections\engine\client[] $clients */
+		$clients = [];
 
 		for ($i = 0; $i < $amount; ++$i) {
-			$client = thread::spawn(function ($server) use ($original) {
+			$clients [] = thread::spawn(function ($server) use ($connections) {
+				/** @var connections\base[] $connections */
+
 				$engine = new engine\client();
-				$engine->setup($original->setup());
 				$engine->add($server);
 
-				$original->trigger('worker_start', []);
+				foreach ($connections as $connection) {
+					$connection->trigger('worker_start');
 
-				foreach ($original as $connection) {
-					if ($connection instanceof connections\listener) {
-						$connection->on('request', [$server, 'checkFiles']);
-
-						$engine->add($connection);
-					}
+					$engine->add($connection);
 				}
 
 				$engine->run();
 
-				$original->trigger('worker_end', []);
-
-				exit (0);
+				exit(0);
 			});
-
-			$this->add($client);
 		}
+
+		return $clients;
 	}
 }

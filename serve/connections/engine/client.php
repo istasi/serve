@@ -72,13 +72,4 @@ class client extends base
 
 		return false;
 	}
-
-	public function tick(): void
-	{
-		foreach ($this->files as $file => $time) {
-			if ($time < $this->getTime($file)) {
-				$this->write('die');
-			}
-		}
-	}
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace serve\connections;
 
+use serve\engine;
 use serve\traits;
 use serve\log;
 
@@ -11,13 +12,14 @@ abstract class base
 {
 	use traits\events;
 
+	protected engine\pool $pool;
+
 	protected bool $write = false;
 	protected bool $connected = true;
 	protected string $message = '';
 
 	public function __construct(readonly public mixed $stream)
 	{
-
 	}
 
 	public function __destruct()

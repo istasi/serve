@@ -6,22 +6,12 @@ namespace serve\connections;
 
 use serve\engine;
 
-class listener extends base
+abstract class listener extends base
 {
 	protected engine\base $engine;
 
-	public function __construct ( mixed $stream )
+	public function __construct(mixed $stream)
 	{
-		$that = $this;
-		$this->on('added', function (engine\base $engine) use ($that) {
-			$that->engine($engine);
-		});
-
-		parent::__construct ( $stream );
-	}
-
-	public function engine(engine\base $engine): void
-	{
-		$this->engine = $engine;
+		parent::__construct($stream);
 	}
 }

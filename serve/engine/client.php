@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace serve\engine;
 
+use serve\connections\listener;
 use serve\log;
 use serve\traits;
 use serve\exceptions\kill;
+use serve\interfaces;
 
-class client extends base
+class client extends base implements interfaces\setup
 {
 	use traits\setup;
 
 	public function __construct()
 	{
-		parent::__construct(size: -1);
-
 		$this->options = [];
 	}
 
@@ -28,12 +28,18 @@ class client extends base
 
 	public function run()
 	{
-		do {
-			/**
-			 * No idea why this matters, but having this here, seem to make sure that the engine\client are consistently killed off when engine\server is killed (SIGTERM/SIGINT)
-			 */
-			pcntl_signal_dispatch();
+		$that = $this;
+		foreach ($this->getIterator() as $connection) {
+			if (($connection instanceof listener) === false) {
+				continue;
+			}
 
+			$connection->on('accept', function ($connection) use ($that) {
+				$that->add($connection);
+			});
+		}
+
+		do {
 			$read = $this->streams();
 			$write = $this->streams(function ($connection) {
 				return true === $connection->write;
