@@ -7,7 +7,7 @@ namespace serve\connections;
 use serve\traits;
 use serve\log;
 
-class base
+abstract class base
 {
 	use traits\events;
 
