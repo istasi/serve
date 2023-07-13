@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace serve\connections\engine;
 
 use serve\connections\base;
+use serve\threads\thread;
 
 if (function_exists('inotify_init') === true) {
 	require_once(__DIR__ .'/trait/usingInotify.php');
@@ -22,7 +23,7 @@ class client extends base
 {
 	use trait\getTime;
 
-	public function __construct(mixed $stream)
+	public function __construct(mixed $stream, readonly public int $pid)
 	{
 		parent::__construct($stream);
 	}
@@ -37,13 +38,33 @@ class client extends base
 	protected string $buffer = '';
 	public function read(int $length = 4096): string|false
 	{
-		$this->buffer .= parent::read(4096);
+		static $localFiles = null;
+
+		$message = parent::read(4096);
+		if (empty($message) === true) {
+			$this->close();
+			
+			/**
+			 * A client process is dying
+			 */
+			thread::wait(0);
+		}
+
+		$this->buffer .= $message;
 
 		$result = json_decode($this->buffer, true);
 		if ($result !== null) {
+			if ($localFiles === null) {
+				$localFiles = get_included_files();
+			}
+
 			$this->files = array_flip($result);
 			foreach ($this->files as $file => $time) {
-				$this->files [ $file ] = $this->getTime($file);
+				if (in_array(haystack: $localFiles, needle: $file, strict: true) === true) {
+					unset($this->files [$file]);
+				} else {
+					$this->files [ $file ] = $this->getTime($file);
+				}
 			}
 
 			$this->buffer = '';

@@ -22,16 +22,9 @@ class thread
 		if (true === empty($connections)) {
 			throw new \Exception('thread: Failed to create paired socket');
 		}
-
-		$serverSocket = array_pop($connections);
-		stream_set_blocking($serverSocket, false);
-		$server = new server($serverSocket);
-		unset($serverSocket);
-
 		$clientSocket = array_pop($connections);
-		stream_set_blocking($clientSocket, false);
-		$client = new client($clientSocket);
-		unset($clientSocket);
+		$serverSocket = array_pop($connections);
+		unset($connections);
 
 		$pid = pcntl_fork();
 		if (-1 === $pid) {
@@ -39,16 +32,19 @@ class thread
 		}
 
 		if ($pid) {
-			cli_set_process_title('serve: master process '. getcwd() .'/');
-			unset($arg);
+			stream_set_blocking($clientSocket, false);
+			$client = new client(stream: $clientSocket, pid: $pid);
+			unset($clientSocket, $serverSocket);
 
-			// This shouldn't make a different GC should be able to see these the moment we hit return
-			unset($server,$connections);
+			cli_set_process_title('serve: master process '. getcwd() .'/');
 
 			self::$children [$pid] = true;
 			return $client;
 		}
-		unset($client,$connections);
+
+		stream_set_blocking($serverSocket, false);
+		$server = new server(stream: $serverSocket);
+		unset($serverSocket, $clientSocket);
 
 		pcntl_async_signals(false);
 		cli_set_process_title('serve: worker process');

@@ -110,8 +110,6 @@ class server extends base
 
 				$connection->write();
 			}
-
-			thread::wait();
 		} while (1);
 
 		thread::killall();
@@ -140,6 +138,8 @@ class server extends base
 				$engine->run();
 
 				$original->trigger('worker_end', []);
+
+				exit (0);
 			});
 
 			$this->add($client);
