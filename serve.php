@@ -29,9 +29,6 @@ $server->on('request', function (serve\http\response $response, serve\http\reque
 	require 'site/main.php';
 });
 
-$engine = new serve\engine([
-	'workers' => 4,
-]);
 $engine->add($server);
 
 $engine->run();

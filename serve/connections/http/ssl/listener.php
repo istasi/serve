@@ -54,9 +54,10 @@ class listener extends http\listener
 
 		stream_set_blocking($stream, false);
 
-		$client = new http\client($stream, $address);
-		$client->triggers($this->triggers());
-		$this->engine->add($client);
+		$connection = new http\client(stream: $stream, address: $address);
+		$connection->triggers($this->triggers());
+
+		$this->trigger ('accept', [$connection]);
 
 		return false;
 	}
