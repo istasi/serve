@@ -11,7 +11,6 @@ use serve\log;
 
 class thread
 {
-	private static bool $exited = false;
 	public static array $children = [];
 
 	public static function spawn(callable $callback): client
@@ -86,15 +85,9 @@ class thread
 			return 0;
 		}
 
-		self::$exited = pcntl_wifsignaled($status);
 		unset(self::$children [$pid]);
 
 		return $pid;
-	}
-
-	public static function lastExit(): bool
-	{
-		return self::$exited;
 	}
 
 	public static function killall(): void

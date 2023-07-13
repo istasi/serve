@@ -111,9 +111,7 @@ class server extends base
 				$connection->write();
 			}
 
-			if (thread::wait()) {
-				var_dump(thread::lastExit());
-			}
+			thread::wait();
 		} while (1);
 
 		thread::killall();
