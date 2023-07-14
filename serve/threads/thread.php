@@ -36,8 +36,6 @@ class thread
 			$client = new client(stream: $clientSocket, pid: $pid);
 			unset($clientSocket, $serverSocket);
 
-			cli_set_process_title('serve: master process '. getcwd() .'/');
-
 			self::$children [$pid] = true;
 			return $client;
 		}
@@ -47,7 +45,7 @@ class thread
 		unset($serverSocket, $clientSocket);
 
 		pcntl_async_signals(false);
-		cli_set_process_title('serve: worker process');
+		
 
 		log::$id = $spawned;
 		$callback($server, $spawned);
