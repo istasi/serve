@@ -43,7 +43,7 @@ class client extends base
 		$message = parent::read(4096);
 		if (empty($message) === true) {
 			$this->close();
-			
+
 			/**
 			 * A client process is dying
 			 */

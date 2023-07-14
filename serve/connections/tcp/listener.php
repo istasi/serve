@@ -16,7 +16,6 @@ class listener extends connections\listener implements interfaces\setup
 	use events;
 	use setup;
 
-
 	public function __construct(array $options)
 	{
 		$this->options = [

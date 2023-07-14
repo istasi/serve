@@ -18,7 +18,7 @@ class server extends base
 {
 	public function __destruct()
 	{
-		$this->close ();
+		$this->close();
 	}
 
 	private string $lastFiles = '';

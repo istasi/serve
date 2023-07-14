@@ -5,22 +5,28 @@ declare(strict_types=1);
 namespace serve\engine;
 
 use Exception;
+use InvalidArgumentException;
+use IteratorAggregate;
 use serve\connections;
 use serve\connections\engine\client;
+use serve\connections\http\ssl\listener;
 use serve\engine;
 use serve\log;
 use serve\threads\thread;
 use serve\traits;
 use serve\interfaces;
 
-class server extends base implements interfaces\setup
+class server implements interfaces\setup, IteratorAggregate
 {
+	use traits\events;
 	use traits\setup;
+	use traits\streams;
+
+	protected array $pool = [];
 
 	public function __construct(array $options = [])
 	{
 		$this->options = [
-			'workers' => 4,
 			'internal_delay' => 1,
 		];
 
@@ -34,11 +40,37 @@ class server extends base implements interfaces\setup
 		}
 	}
 
+	/**
+	 * Adds a listener to the engine to monitor
+	 *
+	 * @param listener $listener
+	 * @return void
+	 * @throws InvalidArgumentException
+	 */
+	public function add(connections\listener $listener): void
+	{
+		$this->trigger('add', [$listener]);
+
+		if (in_array(haystack: $this->pool, needle: $listener, strict: true) === true) {
+			return;
+		}
+
+		$this->pool [] = $listener;
+	}
+
+	public function remove(connections\base $connection): void
+	{
+		foreach ($this->pool as $i => $conn) {
+			if ($conn === $connection) {
+				unset($this->pool [$i]);
+				break;
+			}
+		}
+	}
+
 	public function run(): void
 	{
-		$defaultPool = new engine\pool([
-			'workers' => $this->options ['workers']
-		]);
+		cli_set_process_title(get_class($this));
 
 		/** @var engine\pool[] $pools */
 		$pools = [];
@@ -48,6 +80,10 @@ class server extends base implements interfaces\setup
 				$options = $connection->setup();
 
 				if (isset($options ['pool']) === false || ($options ['pool'] instanceof engine\pool) === false) {
+					if (isset($defaultPool) === false) {
+						$defaultPool = new engine\pool();
+					}
+
 					$options ['pool'] = $defaultPool;
 				}
 
@@ -59,6 +95,9 @@ class server extends base implements interfaces\setup
 
 				$pool->add($connection);
 			}
+
+
+			$this->add($connection);
 		}
 
 		/**
@@ -79,6 +118,12 @@ class server extends base implements interfaces\setup
 		*/
 
 		do {
+			foreach ($this->getIterator() as $connection) {
+				if ($connection->connected === false) {
+					$this->remove($connection);
+				}
+			}
+
 			$read = [];
 			foreach ($pools as $pool) {
 				$workers = $pool->get('workers');
@@ -101,6 +146,7 @@ class server extends base implements interfaces\setup
 
 					foreach ($this->spawn($workers, $connections) as $connection) {
 						$pool->add($connection);
+						$this->pool [] = $connection;
 					}
 
 					$read = array_merge($read, $pool->streams(function ($connection) {
@@ -180,5 +226,16 @@ class server extends base implements interfaces\setup
 		}
 
 		return $clients;
+	}
+
+	/**
+	 *
+	 * @return Traversable<int, connections\base>|connections\base[]
+	 */
+	public function getIterator(): \Traversable
+	{
+		foreach ($this->pool as $key => $value) {
+			yield $key => $value;
+		}
 	}
 }
