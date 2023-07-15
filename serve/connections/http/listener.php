@@ -6,7 +6,6 @@ namespace serve\connections\http;
 
 use serve\connections\http;
 use serve\connections\tcp;
-use serve\log;
 
 class listener extends tcp\listener
 {

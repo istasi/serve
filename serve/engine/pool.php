@@ -34,18 +34,24 @@ class pool implements IteratorAggregate
 		];
 	}
 
-	public function add(connections\base $connection): void
+	public function add(connections\base $client): void
 	{
-		if (in_array(haystack: $this->pool, needle: $connection, strict: true) === true) {
+		if (in_array(haystack: $this->pool, needle: $client, strict: true) === true) {
 			return;
 		}
 
-		$connection->trigger('pool_add', ['pool' => $this]);
-		$this->pool [] = $connection;
+		$this->trigger('add', [$client]);
+
+		$client->on('close', function ($connection) {
+			$this->remove($connection);
+		});
+
+		$this->pool [] = $client;
 	}
 
 	public function remove(connections\base $connection): void
 	{
+
 		foreach ($this->pool as $i => $conn) {
 			if ($conn === $connection) {
 				unset($this->pool [$i]);
@@ -76,6 +82,12 @@ class pool implements IteratorAggregate
 	public function getIterator(): \Traversable
 	{
 		foreach ($this->pool as $key => $value) {
+			if ( $value->connected === false )
+			{
+				unset ( $this->pool [ $key ] );
+				continue;
+			}
+			
 			yield $key => $value;
 		}
 	}

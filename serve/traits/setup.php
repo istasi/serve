@@ -6,7 +6,7 @@ namespace serve\traits;
 
 trait setup
 {
-	protected array $options;
+	protected array $options = [];
 
 	public function setup(array $options = []): array
 	{

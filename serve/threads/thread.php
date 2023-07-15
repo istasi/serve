@@ -46,7 +46,6 @@ class thread
 
 		pcntl_async_signals(false);
 		
-
 		log::$id = $spawned;
 		$callback($server, $spawned);
 
@@ -61,7 +60,7 @@ class thread
 	 * @return int
 	 * @throws Exception
 	 */
-	public static function wait(int $flags = WNOHANG): int
+	public static function wait(int $flags = WNOHANG): int|false
 	{
 		$status = 0;
 
@@ -72,7 +71,7 @@ class thread
 		);
 
 		if (-1 === $pid) {
-			throw new \Exception('thread: Failed to wait');
+			return false;
 		}
 
 		if (0 === $pid) {

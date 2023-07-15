@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace serve\engine;
 
+use Closure;
 use Exception;
 use InvalidArgumentException;
 use IteratorAggregate;
+use serve;
 use serve\connections;
-use serve\connections\engine\client;
-use serve\connections\http\ssl\listener;
-use serve\engine;
-use serve\log;
 use serve\threads\thread;
 use serve\traits;
 use serve\interfaces;
@@ -35,7 +33,13 @@ class server implements interfaces\setup, IteratorAggregate
 
 	public function __destruct()
 	{
-		foreach ($this as $connection) {
+		foreach ($this->getIterator() as $connection) {
+			if ($connection instanceof connections\listener) {
+				if (empty($connection->file) === false) {
+					unlink($connection->file);
+				}
+			}
+
 			$connection->close();
 		}
 	}
@@ -55,7 +59,20 @@ class server implements interfaces\setup, IteratorAggregate
 			return;
 		}
 
+		$listener->trigger('pool_added', [$this]);
+
 		$this->pool [] = $listener;
+	}
+
+	private function addClient(connections\engine\client $client): void
+	{
+		if (in_array(haystack: $this->pool, needle: $client, strict: true) === true) {
+			return;
+		}
+
+		$client->trigger('pool_added', [$this]);
+
+		$this->pool [] = $client;
 	}
 
 	public function remove(connections\base $connection): void
@@ -70,7 +87,7 @@ class server implements interfaces\setup, IteratorAggregate
 
 	public function run(): void
 	{
-		cli_set_process_title(get_class($this));
+		cli_set_process_title(__CLASS__);
 
 		/** @var engine\pool[] $pools */
 		$pools = [];
@@ -79,9 +96,9 @@ class server implements interfaces\setup, IteratorAggregate
 			if ($connection instanceof interfaces\setup) {
 				$options = $connection->setup();
 
-				if (isset($options ['pool']) === false || ($options ['pool'] instanceof engine\pool) === false) {
+				if (isset($options ['pool']) === false || ($options ['pool'] instanceof serve\engine\pool) === false) {
 					if (isset($defaultPool) === false) {
-						$defaultPool = new engine\pool();
+						$defaultPool = new serve\engine\pool();
 					}
 
 					$options ['pool'] = $defaultPool;
@@ -90,6 +107,11 @@ class server implements interfaces\setup, IteratorAggregate
 				/** @var engine\pool $pool */
 				$pool = $options ['pool'];
 				if (isset($pools [ $pool->id() ]) === false) {
+					$pool->on('add', function ($connection) {
+						if ($connection instanceof connections\engine\client) {
+							$this->addClient($connection);
+						}
+					});
 					$pools [ $pool->id() ] = $pool;
 				}
 
@@ -99,37 +121,27 @@ class server implements interfaces\setup, IteratorAggregate
 
 			$this->add($connection);
 		}
+		unset($connection, $options, $pool, $defaultPool);
 
 		/**
-		 * We want it to stop executing the script a place that fit, such as stream_socket_select, from where we can attempt to do a more graceful shutdown
-		 * If a child process is getting hit by a SIGTERM instead, this process will just spawn a new one. Im not sure as to whenever
+		 * We still want __destruct to run if we get killed, atleast to clean up 
 		 */
-		pcntl_async_signals(false);
-
-		/**
-		 * Not sure why, but the function supplied to pcntl_signal doesn't seem to be actually run
-		 * But this with the above, allows us to control where we die, $change = stream_socket_select (); will return false if we are being killed.
-		 *
-		 * Note: These get executed when die ()/exit () are called, exit (0); does not seem to make it a clean exit in terms of pcntl_wifexited ()
-		 */
-		/*
-		pcntl_signal(SIGTERM, function () { exit(0); });
-		pcntl_signal(SIGINT, function () {});
-		*/
+		pcntl_async_signals(true);
+		$fn = function () {
+			$this->__destruct();
+			
+			exit(0);
+		};
+		pcntl_signal(SIGTERM, $fn);
+		pcntl_signal(SIGINT, $fn);
 
 		do {
-			foreach ($this->getIterator() as $connection) {
-				if ($connection->connected === false) {
-					$this->remove($connection);
-				}
-			}
-
 			$read = [];
 			foreach ($pools as $pool) {
 				$workers = $pool->get('workers');
 
 				$pool->streams(function ($connection) use (&$workers, &$read) {
-					if ($connection instanceof client) {
+					if ($connection instanceof connections\engine\client) {
 						$workers--;
 
 						$read [] = $connection->stream;
@@ -139,26 +151,25 @@ class server implements interfaces\setup, IteratorAggregate
 				if ($workers > 0) {
 					$connections = [];
 					foreach ($pool->getIterator() as $connection) {
-						if (($connection instanceof client) === false) {
+						if (($connection instanceof serve\engine\client) === false) {
 							$connections [] = $connection;
 						}
 					}
 
-					foreach ($this->spawn($workers, $connections) as $connection) {
+					$workers = $this->spawn($workers, $connections);
+					foreach ($workers as $connection) {
 						$pool->add($connection);
-						$this->pool [] = $connection;
+						$read [] = $connection->stream;
 					}
-
-					$read = array_merge($read, $pool->streams(function ($connection) {
-						return $connection instanceof client;
-					}));
 				}
 			}
-			$read = array_unique($read);
+			unset($workers, $connections, $connection, $pool);
+			//$read = array_unique($read);
 
 			$write = $this->streams(function ($connection) {
 				return true === $connection->write;
 			});
+			$except = [];
 
 			$changes = @stream_select(read: $read, write: $write, except: $except, seconds: $this->options['internal_delay'], microseconds: 0);
 			if ($changes === false) {
@@ -177,7 +188,7 @@ class server implements interfaces\setup, IteratorAggregate
 
 				$message = $connection->read();
 				if (empty($message) === false) {
-					log::entry($message);
+					serve\log::entry($message);
 				}
 			}
 
@@ -189,7 +200,12 @@ class server implements interfaces\setup, IteratorAggregate
 
 				$connection->write();
 			}
+			unset($connection);
+
+			//break;
 		} while (1);
+
+
 
 		thread::killall();
 	}
@@ -208,13 +224,13 @@ class server implements interfaces\setup, IteratorAggregate
 
 		for ($i = 0; $i < $amount; ++$i) {
 			$clients [] = thread::spawn(function ($server) use ($connections) {
-				/** @var connections\base[] $connections */
-
-				$engine = new engine\client();
+				$engine = new serve\engine\client();
 				$engine->add($server);
 
+				/** @var connections\base[] $connections */
 				foreach ($connections as $connection) {
 					$connection->trigger('worker_start');
+					$connection->trigger('setup');
 
 					$engine->add($connection);
 				}
@@ -235,7 +251,19 @@ class server implements interfaces\setup, IteratorAggregate
 	public function getIterator(): \Traversable
 	{
 		foreach ($this->pool as $key => $value) {
+			if ($value->connected === false) {
+				unset($this->pool [ $key ]);
+				continue;
+			}
+
 			yield $key => $value;
+		}
+	}
+
+	private function halt()
+	{
+		foreach ($this->getIterator() as $connection) {
+			$connection->close();
 		}
 	}
 }

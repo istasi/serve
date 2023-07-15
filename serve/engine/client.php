@@ -21,7 +21,9 @@ class client implements interfaces\setup, IteratorAggregate
 
 	public function __construct()
 	{
-		$this->options = [];
+		$this->options = [
+			'internal_delay' => 30
+		];
 	}
 
 	public function __destruct()
@@ -39,6 +41,8 @@ class client implements interfaces\setup, IteratorAggregate
 			return;
 		}
 
+		$connection->trigger('pool_added', [$this]);
+
 		$this->pool [] = $connection;
 	}
 
@@ -55,42 +59,52 @@ class client implements interfaces\setup, IteratorAggregate
 	public function run()
 	{
 		pcntl_async_signals(true);
+		$fn = function () {
+			$this->__destruct();
 
-		pcntl_signal(SIGTERM, function () {
 			exit(0);
-		});
-		pcntl_signal(SIGINT, function () {});
+		};
+		pcntl_signal(SIGTERM, $fn);
+		pcntl_signal(SIGINT, $fn);
 
-		$address = '';
-		$that = $this;
+		$address = []; $that = $this;
 		foreach ($this->getIterator() as $connection) {
-			if (($connection instanceof connections\listener) === false) {
-				continue;
-			} else {
+			if ($connection instanceof connections\listener) {
 				/** @var connnections\listener $connection */
 				$setup = $connection->setup();
-				$address = $setup ['address'] .':'. $setup ['port'];
+
+				if (isset($address [ get_class($connection) ]) === false) {
+					$address [ get_class($connection) ] = [];
+				}
+				$address [ get_class($connection) ][] = $setup ['address'];
+
+			} else {
+				continue;
 			}
 
-			$connection->on('accept', function ($connection) use ($that) {
+			$connection->on('accept', function ($connection) use ( $that ) {
 				$that->add($connection);
 			});
 		}
-		cli_set_process_title(get_class($this) .' '. $address);
+
+		$title = '';
+		foreach ($address as $class => $listens) {
+			$title .= $class .' ';
+			foreach ($listens as $addr) {
+				$title .= $addr .' ';
+			}
+		}
+		cli_set_process_title(title: $title);
+		unset($address, $title, $connection, $setup);
 
 		do {
-			foreach ($this->getIterator() as $connection) {
-				if ($connection->connected === false) {
-					$this->remove($connection);
-				}
-			}
 			$read = $this->streams();
 			$write = $this->streams(function ($connection) {
 				return true === $connection->write;
 			});
 			$except = [];
 
-			$changes = @stream_select(read: $read, write: $write, except: $except, seconds: $this->options['internal_delay'], microseconds: 0);
+			$changes = @stream_select(read: $read, write: $write, except: $except, seconds: $this->options['internal_delay'] ?? 30, microseconds: 0);
 			if ($changes === false) {
 				break;
 			}
@@ -132,6 +146,11 @@ class client implements interfaces\setup, IteratorAggregate
 	public function getIterator(): \Traversable
 	{
 		foreach ($this->pool as $key => $value) {
+			if ($value->connected === false) {
+				unset($this->pool [ $key ]);
+				continue;
+			}
+
 			yield $key => $value;
 		}
 	}

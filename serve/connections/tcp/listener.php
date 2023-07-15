@@ -4,32 +4,43 @@ declare(strict_types=1);
 
 namespace serve\connections\tcp;
 
+use InvalidArgumentException;
 use serve\connections;
-use serve\traits\events;
-use serve\traits\setup;
 use serve\interfaces;
-use serve\log;
 use serve\engine;
 
 class listener extends connections\listener implements interfaces\setup
 {
-	use events;
-	use setup;
-
-	public function __construct(array $options)
+	public function __construct(readonly public string|null $address = null, readonly public int|null $port = 8080, readonly public string|null $file = null, engine\pool $pool = null)
 	{
-		$this->options = [
-			'address' => '127.0.0.1',
-			'port' => 8080,
-			'pool' => new engine\pool()
-		];
-		$this->setup($options);
+		if (empty($address) === false) {
+			$streamAddress = 'tcp://'. $address .':'. $port;
+		} elseif (empty($file) === false) {
 
-		$address = 'tcp://'.$this->options['address'].':'.$this->options['port'];
-		log::entry('Listener: '. $address);
+			// In case we were kill -9'd, the socket file may still be around, in which case delete it mnually
+			if (file_exists($file) === true) {
+				unlink($file);
+			}
 
-		$stream = stream_socket_server(address: $address);
+			$streamAddress = 'unix://'. $file;
+		} else {
+			throw new InvalidArgumentException('Listener needs either address or a file to listen on');
+		}
+
+		$this->setup([
+			'address' => $streamAddress
+		]);
+
+		if ($pool !== null) {
+			$this->options ['pool'] = $pool;
+		}
+
+		$stream = stream_socket_server(address: $streamAddress);
 		stream_set_blocking(stream: $stream, enable: false);
+
+		if ($file !== null && file_exists($this->file) === true) {
+			chmod($this->file, 0666);
+		}
 
 		parent::__construct($stream);
 	}
