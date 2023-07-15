@@ -74,4 +74,12 @@ class client extends tcp\base
 
 		return false;
 	}
+
+	public function write(string $message = ''): void
+	{
+		stream_set_blocking($this->stream, true);
+		parent::write($message);
+
+		stream_set_blocking($this->stream, false);
+	}
 }

@@ -124,12 +124,12 @@ class server implements interfaces\setup, IteratorAggregate
 		unset($connection, $options, $pool, $defaultPool);
 
 		/**
-		 * We still want __destruct to run if we get killed, atleast to clean up 
+		 * We still want __destruct to run if we get killed, atleast to clean up
 		 */
 		pcntl_async_signals(true);
 		$fn = function () {
 			$this->__destruct();
-			
+
 			exit(0);
 		};
 		pcntl_signal(SIGTERM, $fn);
@@ -140,13 +140,19 @@ class server implements interfaces\setup, IteratorAggregate
 			foreach ($pools as $pool) {
 				$workers = $pool->get('workers');
 
-				$pool->streams(function ($connection) use (&$workers, &$read) {
+				foreach ($pool->getIterator () as $connection) {
 					if ($connection instanceof connections\engine\client) {
 						$workers--;
 
+						if ($workers < 0) {
+							$connection->write('die');
+
+							continue;
+						}
+
 						$read [] = $connection->stream;
 					}
-				});
+				}
 
 				if ($workers > 0) {
 					$connections = [];
@@ -156,14 +162,14 @@ class server implements interfaces\setup, IteratorAggregate
 						}
 					}
 
-					$workers = $this->spawn($workers, $connections);
-					foreach ($workers as $connection) {
+					$clients = $this->spawn($workers, $connections);
+					foreach ($clients as $connection) {
 						$pool->add($connection);
 						$read [] = $connection->stream;
 					}
 				}
 			}
-			unset($workers, $connections, $connection, $pool);
+			unset($workers, $connections, $connection, $pool, $clients);
 			//$read = array_unique($read);
 
 			$write = $this->streams(function ($connection) {
@@ -224,6 +230,15 @@ class server implements interfaces\setup, IteratorAggregate
 
 		for ($i = 0; $i < $amount; ++$i) {
 			$clients [] = thread::spawn(function ($server) use ($connections) {
+				$pools = [];
+				foreach ($connections as $connection) {
+					if (in_array(haystack: $pools, needle: $connection->pool, strict: true) === false) {
+						$pools [] = $connection->pool;
+						$connection->pool->trigger('start');
+					}
+				}
+				unset($polls, $connection);
+
 				$engine = new serve\engine\client();
 				$engine->add($server);
 

@@ -31,9 +31,7 @@ class listener extends connections\listener implements interfaces\setup
 			'address' => $streamAddress
 		]);
 
-		if ($pool !== null) {
-			$this->options ['pool'] = $pool;
-		}
+		$this->pool = $pool;
 
 		$stream = stream_socket_server(address: $streamAddress);
 		stream_set_blocking(stream: $stream, enable: false);
