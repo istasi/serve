@@ -35,6 +35,7 @@ class client extends tcp\base
 
 	public function read(int $length = 4096): string|false
 	{
+		stream_set_blocking($this->stream, false);
 		$message = parent::read(4096);
 		if ($this->connected === false) {
 			return false;
@@ -79,7 +80,5 @@ class client extends tcp\base
 	{
 		stream_set_blocking($this->stream, true);
 		parent::write($message);
-
-		stream_set_blocking($this->stream, false);
 	}
 }
