@@ -16,13 +16,8 @@ abstract class base
 	protected bool $connected = true;
 	protected string $message = '';
 
-	private $__pools = [];
-
 	public function __construct(readonly public mixed $stream)
 	{
-		$this->on('pool_added', function ($pool) {
-			$this->__pools [] = $pool;
-		});
 	}
 
 	public function __destruct()
@@ -37,6 +32,8 @@ abstract class base
 			case 'write':
 				return $this->{$key};
 		}
+
+		var_dump($key);
 	}
 
 	public function read(int $length = 4096): string|false
@@ -54,6 +51,9 @@ abstract class base
 
 	public function write(string $message = ''): void
 	{
+		if ($this->connected === false) {
+			return;
+		}
 		$this->message .= $message;
 
 		$length = strlen($this->message);
@@ -76,10 +76,6 @@ abstract class base
 	{
 		if ($this->connected === false) {
 			return;
-		}
-
-		foreach ($this->__pools as $pool) {
-			$pool->remove($this);
 		}
 
 		$this->connected = false;

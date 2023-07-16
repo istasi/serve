@@ -28,8 +28,13 @@ class pool implements IteratorAggregate
 
 	public function __debugInfo()
 	{
+		$connected = [];
+		foreach ( $this->pool as $i => $connection )
+		{
+			$connected [$i] = $connection->connected;
+		}
 		return [
-			'pool' => array_keys($this->pool),
+			'pool' => $connected,
 			'options' => $this->options
 		];
 	}
@@ -41,10 +46,6 @@ class pool implements IteratorAggregate
 		}
 
 		$this->trigger('add', [$client]);
-
-		$client->on('close', function ($connection) {
-			$this->remove($connection);
-		});
 
 		$this->pool [] = $client;
 	}
@@ -72,6 +73,8 @@ class pool implements IteratorAggregate
 
 	public function set(string $key, mixed $value): void
 	{
+		$this->trigger('change', ['key' => $key, 'value'=> $value]);
+
 		$this->options [ $key ] = $value;
 	}
 
@@ -82,12 +85,6 @@ class pool implements IteratorAggregate
 	public function getIterator(): \Traversable
 	{
 		foreach ($this->pool as $key => $value) {
-			if ( $value->connected === false )
-			{
-				unset ( $this->pool [ $key ] );
-				continue;
-			}
-			
 			yield $key => $value;
 		}
 	}

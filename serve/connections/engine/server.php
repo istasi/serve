@@ -10,7 +10,7 @@ use serve\http\response;
 use serve\exceptions\kill;
 
 /**
- * Messages from the server
+ * Messages from/to the server
  *
  * @package serve\connections\engine
  */

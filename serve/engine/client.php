@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace serve\engine;
 
+use Exception;
 use IteratorAggregate;
 use serve\connections;
 use serve\log;
@@ -18,7 +19,7 @@ class client implements IteratorAggregate
 
 	protected array $pool = [];
 
-	public function __construct()
+	public function __construct(readonly public connections\engine\server $server)
 	{
 		$this->options = [
 			'internal_delay' => 30
@@ -66,6 +67,7 @@ class client implements IteratorAggregate
 		pcntl_signal(SIGTERM, $fn);
 		pcntl_signal(SIGINT, $fn);
 
+		$pools = [];
 		$address = [];
 		$that = $this;
 		foreach ($this->getIterator() as $connection) {
@@ -78,6 +80,9 @@ class client implements IteratorAggregate
 				}
 				$address [ get_class($connection) ][] = $setup ['address'];
 
+				if (in_array(haystack: $pools, needle: $connection->pool, strict: true) === false) {
+					$pools [] = $connection->pool;
+				}
 			} else {
 				continue;
 			}
@@ -87,12 +92,18 @@ class client implements IteratorAggregate
 			});
 		}
 
+		foreach ($pools as $pool) {
+			$pool->on('change', function (string $key, mixed $value) use ($pool) {
+				$this->server->write('p:'. $pool->id() .':'. serialize([$key => $value]));
+			});
+		}
+
 		$title = '';
 		foreach ($address as $class => $listens) {
 			$title .= $class .' '. join(separator: ' ', array: $listens) .' ';
 		}
 		cli_set_process_title(title: trim($title));
-		unset($address, $title, $connection, $setup);
+		unset($address, $title, $connection, $setup, $pools, $pool);
 
 		do {
 			$read = $this->streams();

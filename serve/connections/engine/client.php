@@ -6,6 +6,7 @@ namespace serve\connections\engine;
 
 use serve\connections\base;
 use serve\threads\thread;
+use serve\engine;
 
 if (function_exists('inotify_init') === true) {
 	require_once(__DIR__ .'/trait/usingInotify.php');
@@ -15,7 +16,7 @@ if (function_exists('inotify_init') === true) {
 
 
 /**
- * Messages from the client
+ * Messages from/to the client
  *
  * @package serve\connections\engine
  */
@@ -23,8 +24,16 @@ class client extends base
 {
 	use trait\getTime;
 
+	private engine\server $server;
+
 	public function __construct(mixed $stream, readonly public int $pid)
 	{
+		$this->on('pool_added', function ($server) {
+			if ($server instanceof engine\server) {
+				$this->server($server);
+			}
+		});
+
 		parent::__construct($stream);
 	}
 
@@ -33,43 +42,34 @@ class client extends base
 		$this->close();
 	}
 
-	private array $files = [];
+	private function server(engine\server $server)
+	{
+		$this->server = $server;
+	}
 
-	protected string $buffer = '';
 	public function read(int $length = 4096): string|false
 	{
-		static $localFiles = null;
-
 		$message = parent::read(4096);
 		if (empty($message) === true) {
 			$this->close();
 
-			/**
-			 * A client process is dying
-			 */
-			thread::wait(0);
+			return false;
 		}
 
-		$this->buffer .= $message;
+		switch (substr($message, 0, 1)) {
+			case 'p':
+				$bits = explode(separator: ':', string: $message, limit: 3);
+				$id = $bits [1];
+				$options = unserialize($bits[2]);
 
-		$result = json_decode($this->buffer, true);
-		if ($result !== null) {
-			if ($localFiles === null) {
-				$localFiles = get_included_files();
-			}
-
-			$this->files = array_flip($result);
-			foreach ($this->files as $file => $time) {
-				if (in_array(haystack: $localFiles, needle: $file, strict: true) === true) {
-					unset($this->files [$file]);
-				} else {
-					$this->files [ $file ] = $this->getTime($file);
-				}
-			}
-
-			$this->buffer = '';
+				$this->server->trigger('pool_change', [ 'id' => $id, 'options' => $options]);
 		}
 
 		return false;
+	}
+
+	public function write ( string $message = '' ): void
+	{
+		parent::write ( $message );
 	}
 }

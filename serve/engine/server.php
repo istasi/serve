@@ -91,6 +91,12 @@ class server implements IteratorAggregate
 		/** @var engine\pool[] $pools */
 		$pools = [];
 
+		$this->on('pool_change', function (int $id, array $options) use (&$pools) {
+			if (isset($pools [ $id ]) === true) {
+				$pools [$id]->setup($options);
+			}
+		});
+
 		foreach ($this->getIterator() as $connection) {
 			if ($connection instanceof connections\listener) {
 				if ($connection->pool === null) {
@@ -134,11 +140,20 @@ class server implements IteratorAggregate
 		pcntl_signal(SIGINT, $fn);
 
 		do {
+			while (thread::wait() > 0);
+
 			$read = [];
 			foreach ($pools as $pool) {
 				$workers = $pool->get('workers');
 
 				foreach ($pool->getIterator() as $connection) {
+					if ($connection->connected === false) {
+						$pool->remove($connection);
+						$this->remove($connection);
+
+						continue;
+					}
+
 					if ($connection instanceof connections\engine\client) {
 						$workers--;
 
@@ -152,10 +167,11 @@ class server implements IteratorAggregate
 					}
 				}
 
+
 				if ($workers > 0) {
 					$connections = [];
 					foreach ($pool->getIterator() as $connection) {
-						if (($connection instanceof serve\engine\client) === false) {
+						if (($connection instanceof connections\engine\client) === false) {
 							$connections [] = $connection;
 						}
 					}
@@ -194,6 +210,14 @@ class server implements IteratorAggregate
 				if (empty($message) === false) {
 					serve\log::entry($message);
 				}
+
+				if ($connection->connected === false) {
+					$this->remove($connection);
+
+					if (isset($connection->pool) === true) {
+						$connection->pool->remove($connection);
+					}
+				}
 			}
 
 			foreach ($write as $connection) {
@@ -206,12 +230,13 @@ class server implements IteratorAggregate
 			}
 			unset($connection);
 
+
 			//break;
 		} while (1);
 
-
-
 		thread::killall();
+
+		exit(0);
 	}
 
 	/**
@@ -228,24 +253,23 @@ class server implements IteratorAggregate
 
 		for ($i = 0; $i < $amount; ++$i) {
 			$clients [] = thread::spawn(function ($server) use ($connections) {
+				$this->halt();
+
 				$pools = [];
 				foreach ($connections as $connection) {
-					if ($connection->pool !== null && in_array(haystack: $pools, needle: $connection->pool, strict: true) === false) {
+					if (isset($connection->pool) === true && in_array(haystack: $pools, needle: $connection->pool, strict: true) === false) {
 						$pools [] = $connection->pool;
 						$connection->pool->trigger('start');
 					}
 				}
 				unset($polls, $connection);
 
-				$engine = new serve\engine\client();
-				$engine->add($server);
+				$engine = new serve\engine\client(server: $server);
+				$engine->add(connection: $server);
 
 				/** @var connections\base[] $connections */
 				foreach ($connections as $connection) {
-					$connection->trigger('worker_start');
-					$connection->trigger('setup');
-
-					$engine->add($connection);
+					$engine->add(connection: $connection);
 				}
 
 				$engine->run();
@@ -275,8 +299,11 @@ class server implements IteratorAggregate
 
 	private function halt()
 	{
+		$this->triggers([]);
+		/*
 		foreach ($this->getIterator() as $connection) {
 			$connection->close();
 		}
+		*/
 	}
 }
