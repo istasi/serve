@@ -257,7 +257,7 @@ class server implements IteratorAggregate
 
 				$pools = [];
 				foreach ($connections as $connection) {
-					if (isset($connection->pool) === true && in_array(haystack: $pools, needle: $connection->pool, strict: true) === false) {
+					if (in_array(haystack: $pools, needle: $connection->pool, strict: true) === false) {
 						$pools [] = $connection->pool;
 						$connection->pool->trigger('start');
 					}
