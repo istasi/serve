@@ -73,7 +73,7 @@ class reader
 					'method' => $bits [0],
 					'request_uri' => $bits [1],
 					'protocol' => $bits [2],
-					'remote_addr' => $this->address, // TODO: Figure a way to split this out between IP and PORT, not sure explode on ':' would do well with with IPv6
+					'remote_addr' => $this->address,
 				];
 				$this->request->__server($server);
 
