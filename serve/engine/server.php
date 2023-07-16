@@ -12,9 +12,8 @@ use serve;
 use serve\connections;
 use serve\threads\thread;
 use serve\traits;
-use serve\interfaces;
 
-class server implements interfaces\setup, IteratorAggregate
+class server implements IteratorAggregate
 {
 	use traits\events;
 	use traits\setup;
@@ -93,19 +92,18 @@ class server implements interfaces\setup, IteratorAggregate
 		$pools = [];
 
 		foreach ($this->getIterator() as $connection) {
-			if ($connection instanceof interfaces\setup) {
-				$options = $connection->setup();
-
-				if (isset($options ['pool']) === false || ($options ['pool'] instanceof serve\engine\pool) === false) {
+			if ($connection instanceof connections\listener) {
+				if ($connection->pool === null) {
 					if (isset($defaultPool) === false) {
 						$defaultPool = new serve\engine\pool();
 					}
 
-					$options ['pool'] = $defaultPool;
+					$pool = $defaultPool;
+				} else {
+					$pool = $connection->pool;
 				}
 
 				/** @var engine\pool $pool */
-				$pool = $options ['pool'];
 				if (isset($pools [ $pool->id() ]) === false) {
 					$pool->on('add', function ($connection) {
 						if ($connection instanceof connections\engine\client) {
@@ -140,7 +138,7 @@ class server implements interfaces\setup, IteratorAggregate
 			foreach ($pools as $pool) {
 				$workers = $pool->get('workers');
 
-				foreach ($pool->getIterator () as $connection) {
+				foreach ($pool->getIterator() as $connection) {
 					if ($connection instanceof connections\engine\client) {
 						$workers--;
 
@@ -232,7 +230,7 @@ class server implements interfaces\setup, IteratorAggregate
 			$clients [] = thread::spawn(function ($server) use ($connections) {
 				$pools = [];
 				foreach ($connections as $connection) {
-					if (in_array(haystack: $pools, needle: $connection->pool, strict: true) === false) {
+					if ($connection->pool !== null && in_array(haystack: $pools, needle: $connection->pool, strict: true) === false) {
 						$pools [] = $connection->pool;
 						$connection->pool->trigger('start');
 					}

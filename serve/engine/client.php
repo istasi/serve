@@ -9,9 +9,8 @@ use serve\connections;
 use serve\log;
 use serve\traits;
 use serve\exceptions\kill;
-use serve\interfaces;
 
-class client implements interfaces\setup, IteratorAggregate
+class client implements IteratorAggregate
 {
 	use traits\events;
 	use traits\setup;
@@ -67,7 +66,8 @@ class client implements interfaces\setup, IteratorAggregate
 		pcntl_signal(SIGTERM, $fn);
 		pcntl_signal(SIGINT, $fn);
 
-		$address = []; $that = $this;
+		$address = [];
+		$that = $this;
 		foreach ($this->getIterator() as $connection) {
 			if ($connection instanceof connections\listener) {
 				/** @var connnections\listener $connection */
@@ -82,19 +82,16 @@ class client implements interfaces\setup, IteratorAggregate
 				continue;
 			}
 
-			$connection->on('accept', function ($connection) use ( $that ) {
+			$connection->on('accept', function ($connection) use ($that) {
 				$that->add($connection);
 			});
 		}
 
 		$title = '';
 		foreach ($address as $class => $listens) {
-			$title .= $class .' ';
-			foreach ($listens as $addr) {
-				$title .= $addr .' ';
-			}
+			$title .= $class .' '. join(separator: ' ', array: $listens) .' ';
 		}
-		cli_set_process_title(title: $title);
+		cli_set_process_title(title: trim($title));
 		unset($address, $title, $connection, $setup);
 
 		do {

@@ -6,12 +6,10 @@ namespace serve\connections\tcp;
 
 use InvalidArgumentException;
 use serve\connections;
-use serve\interfaces;
-use serve\engine;
 
-class listener extends connections\listener implements interfaces\setup
+class listener extends connections\listener
 {
-	public function __construct(readonly public string|null $address = null, readonly public int|null $port = 8080, readonly public string|null $file = null, engine\pool $pool = null)
+	public function __construct(readonly public string|null $address = null, readonly public int|null $port = 8080, readonly public string|null $file = null, array $options = [])
 	{
 		if (empty($address) === false) {
 			$streamAddress = 'tcp://'. $address .':'. $port;
@@ -27,11 +25,13 @@ class listener extends connections\listener implements interfaces\setup
 			throw new InvalidArgumentException('Listener needs either address or a file to listen on');
 		}
 
+		if (empty($options) === false) {
+			$this->setup($options);
+		}
+
 		$this->setup([
 			'address' => $streamAddress
 		]);
-
-		$this->pool = $pool;
 
 		$stream = stream_socket_server(address: $streamAddress);
 		stream_set_blocking(stream: $stream, enable: false);
