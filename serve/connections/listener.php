@@ -14,10 +14,19 @@ abstract class listener extends base
 
 	protected engine\pool $pool;
 
+	public function use(engine\pool $pool): void
+	{
+		$this->pool = $pool;
+	}
+
 	public function __get($key): mixed
 	{
 		switch ($key) {
 			case 'pool':
+				if (isset($this->{$key}) === false) {
+					return null;
+				}
+
 				return $this->{$key};
 		}
 
