@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+
 spl_autoload_register(function ($class) {
 	$file = ltrim($class, '\\');
 	$file = str_replace(
@@ -10,10 +11,9 @@ spl_autoload_register(function ($class) {
 		subject: $file
 	);
 
-	$file = $file.'.php';
-	$file = __DIR__.'/../'.$file;
+	$file = realpath (__DIR__.'/../serve/'.$file.'.php');
 
-	if (file_exists($file)) {
+	if ($file !== false && file_exists($file)) {
 		require_once $file;
 	}
 });
