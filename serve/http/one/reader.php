@@ -74,6 +74,7 @@ class reader
 					'request_uri' => $bits [1],
 					'protocol' => $bits [2],
 					'remote_addr' => $this->address,
+					'start_time' => hrtime ( true )
 				];
 				$this->request->__server($server);
 

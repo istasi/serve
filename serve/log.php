@@ -18,7 +18,7 @@ class log
 	 * Why php, why?
 	 * it does not make sense to me when you can typehint it in function arguments function ( callable $parser )
 	 * so clearly you can say a variable should be of a type, why should it matter where that variable exists
-	 * 
+	 *
 	 * static public callable $parser;
 	 * PHP Fatal error:  Property serve\log::$parser cannot have type callable in
 	 */
@@ -37,6 +37,21 @@ class log
 
 		$parser = self::$__parser;
 		fwrite(self::$fp, $parser(). $message. PHP_EOL);
+	}
+
+	private static int $start;
+	public static function time(): void
+	{
+		self::$start = hrtime(true);
+	}
+
+	public static function timeEnd(string $message): void
+	{
+		if (isset(log::$start) === false) {
+			return;
+		}
+
+		self::entry($message .': '. number_format((hrtime(true) - self::$start) / 1e6, 4) .'ms');
 	}
 }
 
