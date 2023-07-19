@@ -32,8 +32,6 @@ abstract class base
 			case 'write':
 				return $this->{$key};
 		}
-
-		var_dump($key);
 	}
 
 	public function read(int $length = 4096): string|false

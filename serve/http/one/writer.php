@@ -39,7 +39,7 @@ class writer
 		}
 
 		if (isset($headers['content-type']) === false) {
-			$this->headers['content-type'] = ['gzip'];
+			$headers['content-type'] = ['gzip'];
 		}
 
 		if (isset($headers ['content-type']) === true && str_starts_with(haystack: $headers['content-type'][0], needle: 'image') === true && $headers['content-type'][0] !== 'image/svg+xml') {
@@ -97,13 +97,20 @@ class writer
 		}
 
 		$message = rtrim($message, "\r\n");
+		$length = strlen($message);
+		if ($length > 1024 * 128) {
+			$level = 0;
+		} else {
+			$level = -1;
+		}
+
 		switch ($encoding) {
 			case 'gzip':
-				$message = gzencode($message);
+				$message = gzencode($message, $level);
 				break;
 
 			case 'deflate':
-				$message = gzdeflate($message);
+				$message = gzdeflate($message, $level);
 				break;
 		}
 
