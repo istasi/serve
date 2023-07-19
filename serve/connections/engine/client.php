@@ -5,15 +5,8 @@ declare(strict_types=1);
 namespace serve\connections\engine;
 
 use serve\connections\base;
-use serve\threads\thread;
 use serve\engine;
-
-if (function_exists('inotify_init') === true) {
-	require_once(__DIR__ .'/trait/usingInotify.php');
-} else {
-	require_once(__DIR__ .'/trait/usingFilemtime.php');
-}
-
+use serve\traits;
 
 /**
  * Messages from/to the client
@@ -22,7 +15,7 @@ if (function_exists('inotify_init') === true) {
  */
 class client extends base
 {
-	use trait\getTime;
+	use traits\engine\getTime;
 
 	private engine\server $server;
 
