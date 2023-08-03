@@ -34,7 +34,7 @@ class server implements IteratorAggregate
 	{
 		foreach ($this->getIterator() as $connection) {
 			if ($connection instanceof connections\listener) {
-				if (empty($connection->file) === false) {
+				if (empty($connection->file) === false && file_exists($connection->file) === true) {
 					unlink($connection->file);
 				}
 			}
@@ -60,7 +60,7 @@ class server implements IteratorAggregate
 
 		$listener->trigger('pool_added', [$this]);
 
-		$this->pool [] = $listener;
+		$this->pool[] = $listener;
 	}
 
 	private function addClient(connections\engine\client $client): void
@@ -71,14 +71,14 @@ class server implements IteratorAggregate
 
 		$client->trigger('pool_added', [$this]);
 
-		$this->pool [] = $client;
+		$this->pool[] = $client;
 	}
 
 	public function remove(connections\base $connection): void
 	{
 		foreach ($this->pool as $i => $conn) {
 			if ($conn === $connection) {
-				unset($this->pool [$i]);
+				unset($this->pool[$i]);
 				break;
 			}
 		}
@@ -92,8 +92,8 @@ class server implements IteratorAggregate
 		$pools = [];
 
 		$this->on('pool_change', function (int $id, array $options) use (&$pools) {
-			if (isset($pools [ $id ]) === true) {
-				$pools [$id]->setup($options);
+			if (isset($pools[$id]) === true) {
+				$pools[$id]->setup($options);
 			}
 		});
 
@@ -110,13 +110,13 @@ class server implements IteratorAggregate
 				}
 
 				/** @var engine\pool $pool */
-				if (isset($pools [ $pool->id() ]) === false) {
+				if (isset($pools[$pool->id()]) === false) {
 					$pool->on('add', function ($connection) {
 						if ($connection instanceof connections\engine\client) {
 							$this->addClient($connection);
 						}
 					});
-					$pools [ $pool->id() ] = $pool;
+					$pools[$pool->id()] = $pool;
 				}
 
 				$pool->add($connection);
@@ -163,7 +163,7 @@ class server implements IteratorAggregate
 							continue;
 						}
 
-						$read [] = $connection->stream;
+						$read[] = $connection->stream;
 					}
 				}
 
@@ -172,14 +172,14 @@ class server implements IteratorAggregate
 					$connections = [];
 					foreach ($pool->getIterator() as $connection) {
 						if (($connection instanceof connections\engine\client) === false) {
-							$connections [] = $connection;
+							$connections[] = $connection;
 						}
 					}
 
 					$clients = $this->spawn($workers, $connections);
 					foreach ($clients as $connection) {
 						$pool->add($connection);
-						$read [] = $connection->stream;
+						$read[] = $connection->stream;
 					}
 				}
 			}
@@ -187,11 +187,17 @@ class server implements IteratorAggregate
 			//$read = array_unique($read);
 
 			$write = $this->streams(function ($connection) {
-				return true === $connection->write;
+				return true === $connection->writing;
 			});
 			$except = [];
 
-			$changes = @stream_select(read: $read, write: $write, except: $except, seconds: $this->options['internal_delay'], microseconds: 0);
+			$changes = @stream_select(
+				read: $read,
+				write: $write,
+				except: $except,
+				seconds: $this->options['internal_delay'],
+				microseconds: 0
+			);
 			if ($changes === false) {
 				break;
 			}
@@ -252,13 +258,13 @@ class server implements IteratorAggregate
 		$clients = [];
 
 		for ($i = 0; $i < $amount; ++$i) {
-			$clients [] = thread::spawn(function ($server) use ($connections) {
+			$clients[] = thread::spawn(function ($server) use ($connections) {
 				$this->halt();
 
 				$pools = [];
 				foreach ($connections as $connection) {
 					if (in_array(haystack: $pools, needle: $connection->pool, strict: true) === false) {
-						$pools [] = $connection->pool;
+						$pools[] = $connection->pool;
 						$connection->pool->trigger('start');
 					}
 				}
@@ -289,7 +295,7 @@ class server implements IteratorAggregate
 	{
 		foreach ($this->pool as $key => $value) {
 			if ($value->connected === false) {
-				unset($this->pool [ $key ]);
+				unset($this->pool[$key]);
 				continue;
 			}
 

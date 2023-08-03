@@ -17,16 +17,6 @@ class listener extends tcp\listener
 		}
 		stream_set_blocking($stream, false);
 
-		/**
-		 * Probably not the cleanest solution, but im not 100% sure how an IPV6 is shown with peer_name
-		 * im guessing its ::1:8080
-		 */
-		$address = strrev($address);
-		$bits = explode(':', $address);
-		array_shift($bits);
-		$address = join(separator: ':', array:$bits);
-		$address = strrev($address);
-
 		$connection = new http\client(stream: $stream, address: $address);
 		$connection->triggers($this->triggers());
 

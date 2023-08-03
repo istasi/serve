@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace serve\http;
 
+use serve\exceptions\ResponseWrote;
 use serve\http\one\writer;
 
 class response
 {
+    public bool $hasErrored = false;
+
     private writer $writer;
     private int $state = 0;
 

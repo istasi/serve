@@ -39,6 +39,10 @@ class server extends base
 	{
 		parent::read($length);
 
+		/**
+		 * If we read something here, its because the main thread have sent us something, or have closed the connnection, 
+		 * either way, we need to close this process down.
+		 */
 		throw new kill();
 
 		return false;

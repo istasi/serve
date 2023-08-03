@@ -17,6 +17,7 @@ abstract class listener extends base
 	public function use(engine\pool $pool): void
 	{
 		$this->pool = $pool;
+		$this->trigger ('pool', ['pool' => $pool]);
 	}
 
 	public function __get($key): mixed

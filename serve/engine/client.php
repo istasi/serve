@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace serve\engine;
 
 use Exception;
+use Throwable;
 use IteratorAggregate;
 use serve\connections;
 use serve\log;
@@ -43,14 +44,14 @@ class client implements IteratorAggregate
 
 		$connection->trigger('pool_added', [$this]);
 
-		$this->pool [] = $connection;
+		$this->pool[] = $connection;
 	}
 
 	public function remove(connections\base $connection): void
 	{
 		foreach ($this->pool as $i => $conn) {
 			if ($conn === $connection) {
-				unset($this->pool [$i]);
+				unset($this->pool[$i]);
 				break;
 			}
 		}
@@ -75,13 +76,13 @@ class client implements IteratorAggregate
 				/** @var connnections\listener $connection */
 				$setup = $connection->setup();
 
-				if (isset($address [ get_class($connection) ]) === false) {
-					$address [ get_class($connection) ] = [];
+				if (isset($address[get_class($connection)]) === false) {
+					$address[get_class($connection)] = [];
 				}
-				$address [ get_class($connection) ][] = $setup ['address'];
+				$address[get_class($connection)][] = $setup['address'];
 
 				if (in_array(haystack: $pools, needle: $connection->pool, strict: true) === false) {
-					$pools [] = $connection->pool;
+					$pools[] = $connection->pool;
 				}
 			} else {
 				continue;
@@ -94,13 +95,13 @@ class client implements IteratorAggregate
 
 		foreach ($pools as $pool) {
 			$pool->on('change', function (string $key, mixed $value) use ($pool) {
-				$this->server->write('p:'. $pool->id() .':'. serialize([$key => $value]));
+				$this->server->write('p:' . $pool->id() . ':' . serialize([$key => $value]));
 			});
 		}
 
 		$title = '';
 		foreach ($address as $class => $listens) {
-			$title .= $class .' '. join(separator: ' ', array: $listens) .' ';
+			$title .= $class . ' ' . join(separator: ' ', array: $listens) . ' ';
 		}
 		cli_set_process_title(title: trim($title));
 		unset($address, $title, $connection, $setup, $pools, $pool);
@@ -108,7 +109,7 @@ class client implements IteratorAggregate
 		do {
 			$read = $this->streams();
 			$write = $this->streams(function ($connection) {
-				return true === $connection->write;
+				return true === $connection->writing;
 			});
 			$except = [];
 
@@ -129,8 +130,13 @@ class client implements IteratorAggregate
 					if (false === empty($message)) {
 						log::entry($message);
 					}
-				} catch (kill $e) {
-					break 2;
+				} catch (Throwable $e) {
+					if ($e instanceof kill) {
+						break 2;
+					}
+
+					log::entry($e->__toString());
+					$connection->close ();
 				}
 			}
 
@@ -155,7 +161,7 @@ class client implements IteratorAggregate
 	{
 		foreach ($this->pool as $key => $value) {
 			if ($value->connected === false) {
-				unset($this->pool [ $key ]);
+				unset($this->pool[$key]);
 				continue;
 			}
 

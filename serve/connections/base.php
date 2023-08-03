@@ -12,11 +12,11 @@ abstract class base
 {
 	use traits\events;
 
-	protected bool $write = false;
+	protected bool $writing = false;
 	protected bool $connected = true;
 	protected string $message = '';
 
-	public function __construct(readonly public mixed $stream)
+	public function __construct(protected mixed $stream)
 	{
 	}
 
@@ -28,8 +28,9 @@ abstract class base
 	public function __get(string $key): mixed
 	{
 		switch ($key) {
+			case 'stream':
 			case 'connected':
-			case 'write':
+			case 'writing':
 				return $this->{$key};
 		}
 	}
@@ -67,7 +68,7 @@ abstract class base
 			$this->message = '';
 		}
 
-		$this->write = !empty($this->message);
+		$this->writing = !empty($this->message);
 	}
 
 	public function close(): void
@@ -77,6 +78,9 @@ abstract class base
 		}
 
 		$this->connected = false;
-		fclose($this->stream);
+
+		if (isset($this->stream) === true && is_resource($this->stream) === true) {
+			fclose($this->stream);
+		}
 	}
 }

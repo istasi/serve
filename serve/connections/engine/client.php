@@ -52,17 +52,21 @@ class client extends base
 		switch (substr($message, 0, 1)) {
 			case 'p':
 				$bits = explode(separator: ':', string: $message, limit: 3);
-				$id = $bits [1];
+				if (count($bits) !== 3) {
+					return false;
+				}
+
+				$id = $bits[1];
 				$options = unserialize($bits[2]);
 
-				$this->server->trigger('pool_change', [ 'id' => $id, 'options' => $options]);
+				$this->server->trigger('pool_change', ['id' => $id, 'options' => $options]);
 		}
 
 		return false;
 	}
 
-	public function write ( string $message = '' ): void
+	public function write(string $message = ''): void
 	{
-		parent::write ( $message );
+		parent::write($message);
 	}
 }

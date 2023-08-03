@@ -6,6 +6,8 @@ namespace serve\connections\http;
 
 use Fiber;
 use serve\connections\tcp;
+use serve\exceptions\kill;
+use serve\exceptions\ResponseWrote;
 use serve\http;
 use serve\log;
 
@@ -24,9 +26,9 @@ class client extends tcp\base
 	{
 		parent::__construct($stream);
 
-		$this->readers [1] = new http\one\reader();
-		$this->writers [1] = new http\one\writer();
-		$this->writers [1]->client($this);
+		$this->readers[1] = new http\one\reader();
+		$this->writers[1] = new http\one\writer();
+		$this->writers[1]->client($this);
 
 		//TODO: Write this
 		//$this->readers [2] = new http\two\reader ();
@@ -52,24 +54,27 @@ class client extends tcp\base
 				} else {
 					$this->reader = 1;
 				}
+
+				$this->state = 2;
 				// no break
 			case 1:
-				$reader = $this->readers [ $this->reader ];
+				$reader = $this->readers[$this->reader];
 				$reader->address($this->address);
 				$reader->text($this->readBuffer);
 
 				while ($request = $reader->parse()) {
 					$response = new http\response();
 					$response->header('content-encoding', $request->header('accept-encoding'));
-					$response->setWriter($this->writers [1]);
+					$response->setWriter($this->writers[1]);
 
-					$this->trigger('request', ['request' => $request, 'response' => $response ]);
+					$this->trigger('request', ['request' => $request, 'response' => $response]);
 
-					if ($response->sent() === false) {
-						var_dump($request);
+					if ($response->hasErrored === true) {
+						throw new kill();
 					}
 				}
 
+				$this->state = 1;
 				$this->readBuffer = $reader->text();
 		}
 
