@@ -34,9 +34,11 @@ class thread
 		if ($pid) {
 			stream_set_blocking($clientSocket, false);
 			$client = new client(stream: $clientSocket, pid: $pid);
+			self::$children[$pid] = $clientSocket;
+
+			fclose($serverSocket);
 			unset($clientSocket, $serverSocket);
 
-			self::$children [$pid] = true;
 			return $client;
 		}
 
@@ -45,7 +47,7 @@ class thread
 		unset($serverSocket, $clientSocket);
 
 		pcntl_async_signals(false);
-		
+
 		log::$id = $spawned;
 		$callback($server, $spawned);
 
@@ -78,7 +80,11 @@ class thread
 			return 0;
 		}
 
-		unset(self::$children [$pid]);
+		if (isset(self::$children[$pid]) === true && is_resource(self::$children[$pid]) === true) {
+			@fclose(self::$children[$pid]);
+		}
+
+		unset(self::$children[$pid]);
 
 		return $pid;
 	}
