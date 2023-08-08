@@ -13,8 +13,6 @@ use serve\log;
 
 class client extends tcp\base
 {
-	private $state = 0;
-
 	private int $reader = 1;
 	private array $readers = [];
 
@@ -45,38 +43,23 @@ class client extends tcp\base
 
 		$this->readBuffer .= $message;
 
-		switch ($this->state) {
-			case 0:
-				// Determine protocol
-				$first = substr($this->readBuffer, 0, -1);
-				if (is_numeric($first) === true) {
-					$this->reader = 2;
-				} else {
-					$this->reader = 1;
-				}
+		$reader = $this->readers[$this->reader];
+		$reader->address($this->address);
+		$reader->text($this->readBuffer);
 
-				$this->state = 2;
-				// no break
-			case 1:
-				$reader = $this->readers[$this->reader];
-				$reader->address($this->address);
-				$reader->text($this->readBuffer);
+		while ($request = $reader->parse()) {
+			$response = new http\response();
+			$response->header('content-encoding', $request->header('accept-encoding'));
+			$response->setWriter($this->writers[1]);
 
-				while ($request = $reader->parse()) {
-					$response = new http\response();
-					$response->header('content-encoding', $request->header('accept-encoding'));
-					$response->setWriter($this->writers[1]);
+			$this->trigger('request', ['request' => $request, 'response' => $response]);
 
-					$this->trigger('request', ['request' => $request, 'response' => $response]);
-
-					if ($response->hasErrored === true) {
-						throw new kill();
-					}
-				}
-
-				$this->state = 1;
-				$this->readBuffer = $reader->text();
+			if ($response->hasErrored === true) {
+				throw new kill();
+			}
 		}
+
+		$this->readBuffer = $reader->text();
 
 		return false;
 	}
